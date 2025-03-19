@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
     PadState pad;
     padInitializeDefault(&pad);
     int selected = 1;
+    int returnValue = 0;
     drawBorder();
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Welcome to NX save sync. Select an option\n");
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(48;5;20m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
@@ -36,10 +37,25 @@ int main(int argc, char **argv) {
         }
         if (kDown & HidNpadButton_A) {
             if (selected == 1) {
-                int returnValue = push();
+                returnValue = push();
             } else if (selected == 2) {
                 // SOON
             }
+            break;
+        }
+        consoleUpdate(NULL);
+    }
+    if (returnValue == 0) {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
+    } else {
+        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
+    }
+    printf(CONSOLE_ESC(1C) "Press PLUS key to exit.\n" );
+    while(appletMainLoop()){
+        padUpdate(&pad);
+        u64 kDown = padGetButtonsDown(&pad);
+        if (kDown & HidNpadButton_Plus) {
+            break;
         }
         consoleUpdate(NULL);
     }

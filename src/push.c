@@ -362,8 +362,11 @@ int push() {
     char nickname[0x21];
     memset(&userdata, 0, sizeof(userdata));
     memset(&profilebase, 0, sizeof(profilebase));
-
     rc = accountInitialize(AccountServiceType_Application);
+    if (R_FAILED(rc)) {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "accountInitialize() failed!\n" CONSOLE_ESC(0m));
+        return 0;
+    }
     if (R_SUCCEEDED(rc)) {
         rc = accountGetPreselectedUser(&userID);
         if (R_FAILED(rc)) {
@@ -371,11 +374,23 @@ int push() {
             memset(&settings, 0, sizeof(settings));
             rc = pselShowUserSelector(&userID, &settings);
         }
+        if (R_FAILED(rc)) {
+            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "pselShowUserSelector() failed!\n" CONSOLE_ESC(0m));
+            return 0;
+        }
         if (R_SUCCEEDED(rc)) {
             rc = accountGetProfile(&profile, userID);
+            if (R_FAILED(rc)) {
+                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "accountGetProfile() failed!\n" CONSOLE_ESC(0m));
+                return 0;
+            }
         }
         if (R_SUCCEEDED(rc)) {
             rc = accountProfileGet(&profile, &userdata, &profilebase);
+            if (R_FAILED(rc)) {
+                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "accountProfileGet() failed!\n" CONSOLE_ESC(0m));
+                return 0;
+            }
             if (R_SUCCEEDED(rc)) {
                 memset(nickname,  0, sizeof(nickname));
                 strncpy(nickname, profilebase.nickname, sizeof(nickname)-1);
@@ -388,10 +403,14 @@ int push() {
     }
 
     uint64_t application_id = hex_string_to_u64(pushingTID);
-    if (R_SUCCEEDED(rc)) {
+    if (R_SUCCEEDED(rc)) {  
+        rc = fsdevMountSaveData("save", application_id, userID);
+        if (R_FAILED(rc)) {
+            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n" CONSOLE_ESC(0m));
+            return 0;
+        }
         printf(CONSOLE_ESC(1C) "Mounting save:/\n");
         consoleUpdate(NULL);
-        rc = fsdevMountSaveData("save", application_id, userID);
     }
     if (R_SUCCEEDED(rc)) {
         char title_id_folder[64];
@@ -404,8 +423,6 @@ int push() {
     printf(CONSOLE_ESC(1C) "Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
     zip_directory("sdmc:/temp/", "sdmc:/temp.zip");
-    while(appletMainLoop()){
-        consoleUpdate(NULL);
-    }
+    
     return 1;
 }
