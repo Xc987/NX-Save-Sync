@@ -238,6 +238,37 @@ void zip_directory(const char *dir_path, const char *zip_path) {
     mz_zip_writer_finalize_archive(&zip_archive);
     mz_zip_writer_end(&zip_archive);
 }
+void remove_directory(const char *path) {
+    DIR *dir = opendir(path);
+    if (dir == NULL) {
+        perror("Error opening directory");
+        return;
+    }
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        char full_path[1024];
+        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+        struct stat statbuf;
+        if (lstat(full_path, &statbuf) == -1) {
+            perror("Error getting file status");
+            continue;
+        }
+        if (S_ISDIR(statbuf.st_mode)) {
+            remove_directory(full_path);
+        } else {
+            if (remove(full_path) != 0) {
+                perror("Error removing file");
+            }
+        }
+    }
+    closedir(dir);
+    if (rmdir(path) != 0) {
+        perror("Error removing directory");
+    }
+}
 int push() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
@@ -423,6 +454,10 @@ int push() {
     printf(CONSOLE_ESC(1C) "Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
     zip_directory("sdmc:/temp/", "sdmc:/temp.zip");
-    
+    startSend();
+    remove("sdmc:/temp.zip");
+    printf(CONSOLE_ESC(1C) "Deleted sdmc:/temp.zip file\n");
+    remove_directory("sdmc:/temp/");
+    printf(CONSOLE_ESC(1C) "Deleted sdmc:/temp/ folder\n");
     return 1;
 }

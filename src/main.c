@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     } else {
         printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
     }
-    printf(CONSOLE_ESC(1C) "Press PLUS key to exit.\n" );
+    printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Press PLUS key to exit.\n" );
     while(appletMainLoop()){
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
