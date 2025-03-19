@@ -2,8 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <switch.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <ctype.h>
 #include "main.h"
 #include "ui.h"
+#include <dirent.h>
+#include <fcntl.h>
 
 char titleNames[256][100];
 char titleIDS[256][17];
@@ -14,6 +19,23 @@ int selected = 1;
 int selectedInPage = 1;
 char *pushingTitle = 0;
 char *pushingTID = 0;
+
+
+uint64_t hex_string_to_u64(const char *str) {
+    uint64_t result = 0;
+    for (int i = 0; str[i] != '\0'; i++) {
+        char c = tolower(str[i]);
+        if (c >= '0' && c <= '9') {
+            result = (result << 4) | (c - '0');
+        } else if (c >= 'a' && c <= 'f') {
+            result = (result << 4) | (c - 'a' + 10);
+        } else {
+            printf("Invalid character in hex string: %c\n", c);
+            return 0;
+        }
+    }
+    return result;
+}
 
 void drawTitles() {
     printf(CONSOLE_ESC(8;6H));
@@ -104,7 +126,57 @@ void listTitles() {
     }
     free(records);
 }
+void createTempFoler(const char *path) {
+    char tmp[512];
+    char *p = NULL;
 
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            mkdir(tmp, 0777);
+            *p = '/';
+        }
+    }
+    mkdir(tmp, 0777);
+}
+
+void copySave(const char *src, const char *dest) {
+    DIR *dir;
+    struct dirent *ent;
+    char src_path[512];
+    char dest_path[512];
+    if ((dir = opendir(src)) != NULL) {
+        createTempFoler(dest);
+        while ((ent = readdir(dir)) != NULL) {
+            if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+                continue;
+            }
+            snprintf(src_path, sizeof(src_path), "%s/%s", src, ent->d_name);
+            snprintf(dest_path, sizeof(dest_path), "%s/%s", dest, ent->d_name);
+            if (ent->d_type == DT_DIR) {
+                copySave(src_path, dest_path);
+            } else {
+                FILE *src_file = fopen(src_path, "rb");
+                FILE *dest_file = fopen(dest_path, "wb");
+                if (src_file && dest_file) {
+                    char buffer[8192];
+                    size_t bytes;
+                    while ((bytes = fread(buffer, 1, sizeof(buffer), src_file)) > 0) {
+                        fwrite(buffer, 1, bytes, dest_file);
+                    }
+                    fclose(src_file);
+                    fclose(dest_file);
+                } else {
+                    printf("Failed to copy: %s\n", src_path);
+                }
+            }
+        }
+        closedir(dir);
+    } else {
+        printf("Failed to open directory: %s\n", src);
+    }
+}
 
 int push() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
@@ -173,8 +245,54 @@ int push() {
         consoleUpdate(NULL);
     }
     nsExit();
-    printf(CONSOLE_ESC(6;2H));
-    printf("Selected title %s with TID %s\n", pushingTitle, pushingTID);
+    printf(CONSOLE_ESC(6;1H) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(1C) "Selected title: %s with TID %s\n", pushingTitle, pushingTID);
+
+    Result rc=0;
+    AccountUid userID={0};
+    AccountProfile profile;
+    AccountUserData userdata;
+    AccountProfileBase profilebase;
+    char nickname[0x21];
+    memset(&userdata, 0, sizeof(userdata));
+    memset(&profilebase, 0, sizeof(profilebase));
+
+    rc = accountInitialize(AccountServiceType_Application);
+    if (R_SUCCEEDED(rc)) {
+        rc = accountGetPreselectedUser(&userID);
+        if (R_FAILED(rc)) {
+            PselUserSelectionSettings settings;
+            memset(&settings, 0, sizeof(settings));
+            rc = pselShowUserSelector(&userID, &settings);
+        }
+        if (R_SUCCEEDED(rc)) {
+            rc = accountGetProfile(&profile, userID);
+        }
+        if (R_SUCCEEDED(rc)) {
+            rc = accountProfileGet(&profile, &userdata, &profilebase);
+            if (R_SUCCEEDED(rc)) {
+                memset(nickname,  0, sizeof(nickname));
+                strncpy(nickname, profilebase.nickname, sizeof(nickname)-1);
+                printf(CONSOLE_ESC(1C) "Selected user: %s\n", nickname);
+                consoleUpdate(NULL);
+            }
+            accountProfileClose(&profile);
+        }
+        accountExit();
+    }
+
+    uint64_t application_id = hex_string_to_u64(pushingTID);
+    if (R_SUCCEEDED(rc)) {
+        printf(CONSOLE_ESC(1C) "Mounting save:/\n");
+        rc = fsdevMountSaveData("save", application_id, userID);
+    }
+    if (R_SUCCEEDED(rc)) {
+        char title_id_folder[64];
+        snprintf(title_id_folder, sizeof(title_id_folder), "sdmc:/temp/%s/", pushingTID);
+        printf(CONSOLE_ESC(1C) "Exporting save data from save:/ to %s\n", title_id_folder);
+        copySave("save:/", title_id_folder);
+        fsdevUnmountDevice("save");
+    }
     while(appletMainLoop()){
         consoleUpdate(NULL);
     }
