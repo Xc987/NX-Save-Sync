@@ -5,10 +5,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <ctype.h>
-#include "main.h"
-#include "ui.h"
 #include <dirent.h>
 #include <fcntl.h>
+#include "main.h"
+#include "ui.h"
+#include "miniz.h"
 
 char titleNames[256][100];
 char titleIDS[256][17];
@@ -177,7 +178,66 @@ void copySave(const char *src, const char *dest) {
         printf("Failed to open directory: %s\n", src);
     }
 }
+void zip_directory_recursive(mz_zip_archive *zip_archive, const char *dir_path, const char *base_path) {
+    DIR* dir = opendir(dir_path);
+    if (!dir) {
+        printf("Failed to open directory: %s\n", dir_path);
+        return;
+    }
 
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char file_path[PATH_MAX];
+        snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, entry->d_name);
+
+        char zip_path[PATH_MAX];
+        snprintf(zip_path, sizeof(zip_path), "%s/%s", base_path, entry->d_name);
+
+        if (entry->d_type == DT_DIR) {
+            zip_directory_recursive(zip_archive, file_path, zip_path);
+        } else if (entry->d_type == DT_REG) {
+            FILE *file = fopen(file_path, "rb");
+            if (!file) {
+                printf("Failed to open file: %s\n", file_path);
+                continue;
+            }
+            
+            fseek(file, 0, SEEK_END);
+            size_t file_size = ftell(file);
+            fseek(file, 0, SEEK_SET);
+            
+            void *file_data = malloc(file_size);
+            fread(file_data, 1, file_size, file);
+            fclose(file);
+            
+            if (!mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_BEST_COMPRESSION)) {
+                printf("Failed to add file to zip: %s\n", zip_path);
+            }
+            
+            free(file_data);
+        }
+    }
+    closedir(dir);
+}
+
+void zip_directory(const char *dir_path, const char *zip_path) {
+    mz_zip_archive zip_archive;
+    memset(&zip_archive, 0, sizeof(zip_archive));
+
+    if (!mz_zip_writer_init_file(&zip_archive, zip_path, 0)) {
+        printf("Failed to initialize zip archive!\n");
+        return;
+    }
+
+    zip_directory_recursive(&zip_archive, dir_path, "temp");
+    
+    mz_zip_writer_finalize_archive(&zip_archive);
+    mz_zip_writer_end(&zip_archive);
+}
 int push() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
@@ -330,15 +390,20 @@ int push() {
     uint64_t application_id = hex_string_to_u64(pushingTID);
     if (R_SUCCEEDED(rc)) {
         printf(CONSOLE_ESC(1C) "Mounting save:/\n");
+        consoleUpdate(NULL);
         rc = fsdevMountSaveData("save", application_id, userID);
     }
     if (R_SUCCEEDED(rc)) {
         char title_id_folder[64];
         snprintf(title_id_folder, sizeof(title_id_folder), "sdmc:/temp/%s/", pushingTID);
         printf(CONSOLE_ESC(1C) "Exporting save data from save:/ to %s\n", title_id_folder);
+        consoleUpdate(NULL);
         copySave("save:/", title_id_folder);
         fsdevUnmountDevice("save");
     }
+    printf(CONSOLE_ESC(1C) "Zipping sdmc:/temp/ folder\n");
+    consoleUpdate(NULL);
+    zip_directory("sdmc:/temp/", "sdmc:/temp.zip");
     while(appletMainLoop()){
         consoleUpdate(NULL);
     }
