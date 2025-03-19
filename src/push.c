@@ -199,20 +199,66 @@ int push() {
         if (kDown & HidNpadButton_Plus) {
             break;
         }
-        if (kDown & HidNpadButton_AnyUp) {
-            if (selectedInPage != 1) {
-                clearSelected();
-                selectedInPage -= 1;
-                selected -= 1;
-                drawSelected();
+        if (padGetButtonsDown(&pad) & HidNpadButton_AnyUp) {
+            u64 startTime = armGetSystemTick();
+            bool held = false;
+            while (padGetButtons(&pad) & HidNpadButton_AnyUp) {
+                if (armGetSystemTick() - startTime > armGetSystemTickFreq() / 3) {
+                    held = true;
+                    break;
+                }
+                padUpdate(&pad);
+            }
+            if (held) {
+                while (padGetButtons(&pad) & HidNpadButton_AnyUp) {
+                    if (selectedInPage != 1) {
+                        clearSelected();
+                        selectedInPage -= 1;
+                        selected -= 1;
+                        drawSelected();
+                    }
+                    svcSleepThread(30000000);
+                    consoleUpdate(NULL);
+                    padUpdate(&pad);
+                }
+            } else {
+                if (selectedInPage != 1) {
+                    clearSelected();
+                    selectedInPage -= 1;
+                    selected -= 1;
+                    drawSelected();
+                }
             }
         }
-        if (kDown & HidNpadButton_AnyDown) {
-            if (selectedInPage != 33) {
-                clearSelected();
-                selectedInPage += 1;
-                selected += 1;
-                drawSelected();
+        if (padGetButtonsDown(&pad) & HidNpadButton_AnyDown) {
+            u64 startTime = armGetSystemTick();
+            bool held = false;
+            while (padGetButtons(&pad) & HidNpadButton_AnyDown) {
+                if (armGetSystemTick() - startTime > armGetSystemTickFreq() / 3) {
+                    held = true;
+                    break;
+                }
+                padUpdate(&pad);
+            }
+            if (held) {
+                while (padGetButtons(&pad) & HidNpadButton_AnyDown) {
+                    if (selectedInPage != 33) {
+                        clearSelected();
+                        selectedInPage += 1;
+                        selected += 1;
+                        drawSelected();
+                    }
+                    svcSleepThread(30000000);
+                    consoleUpdate(NULL);
+                    padUpdate(&pad);
+                }
+            } else {
+                if (selectedInPage != 33) {
+                    clearSelected();
+                    selectedInPage += 1;
+                    selected += 1;
+                    drawSelected();
+                }
             }
         }
         if (kDown & HidNpadButton_L) {
