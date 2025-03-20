@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <switch.h>
+#include "main.h"
 
 void drawBorder() {
     printf("%c",218);

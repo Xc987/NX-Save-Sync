@@ -1,2 +1,0 @@
-void drawBorder();
-void drawAppMenu();

@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <switch.h>
 #include "main.h"
-#include "ui.h"
 
 int main(int argc, char **argv) {
     consoleInit(NULL);
