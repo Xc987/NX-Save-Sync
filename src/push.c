@@ -396,8 +396,32 @@ int push() {
     FILE *zip = fopen("sdmc:/temp.zip", "wb");
     zipDir(zip, "sdmc:/temp/", "temp");
     fclose(zip);
-    consoleUpdate(NULL);
-    startSend();
+    socketInitializeDefault();
+    rc = nifmInitialize(NifmServiceType_User);
+    if (R_FAILED(rc)) {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Failed to initialize nifm!\n" CONSOLE_ESC(0m));
+        nifmExit();
+        socketExit();
+        return 0;
+    }
+    NifmInternetConnectionStatus status;
+    rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
+    if (R_FAILED(rc)) {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Failed to get connection status!\n" CONSOLE_ESC(0m));
+        nifmExit();
+        socketExit();
+        return 0;
+    }
+    if (status == NifmInternetConnectionStatus_Connected) {
+        nifmExit();
+        socketExit();
+        startSend();
+    } else {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Console is not connected to the internet!\n" CONSOLE_ESC(0m));
+        socketExit();
+        startSend();
+        return 0;
+    }
     remove("sdmc:/temp.zip");
     printf(CONSOLE_ESC(1C) "Deleted sdmc:/temp.zip file\n");
     remove_directory("sdmc:/temp/");
