@@ -3,12 +3,14 @@
 #include <stdlib.h>
 #include <switch.h>
 #include <unistd.h>
-#include <sys/stat.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <dirent.h>
-#include <fcntl.h>
 #include "main.h"
+#include "miniz.h"
 
+volatile bool shutdown_requested = false;
 char titleNames[256][100];
 char titleIDS[256][17];
 int arrayNum = 0;
@@ -20,7 +22,159 @@ char *pushingTitle = 0;
 char *pushingTID = 0;
 
 
-uint64_t hex_string_to_u64(const char *str) {
+void handleHttp(int client_socket) {
+    char buffer[1024];
+    int bytes_received = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_received < 0) {
+        printf("Error receiving data.\n");
+        return;
+    }
+    buffer[bytes_received] = '\0';
+    if (strstr(buffer, "SHUTDOWN") != NULL) {
+        shutdown_requested = true;
+        const char *response = "HTTP/1.1 200 OK\r\n\r\nServer is shutting down.";
+        send(client_socket, response, strlen(response), 0);
+        close(client_socket);
+        return;
+    }
+    FILE *file = fopen("/temp.zip", "rb");
+    if (!file) {
+        const char *not_found_response = "HTTP/1.1 404 Not Found\r\n\r\nFile not found.";
+        send(client_socket, not_found_response, strlen(not_found_response), 0);
+        close(client_socket);
+        return;
+    }
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    const char *file_name = strrchr("/temp.zip", '/');
+    if (file_name == NULL) {
+        file_name = "/temp.zip"; 
+    } else {
+        file_name++;
+    }
+    char header[512];
+    snprintf(header, sizeof(header),
+             "HTTP/1.1 200 OK\r\n"
+             "Content-Type: application/zip\r\n"
+             "Content-Disposition: attachment; filename=\"%s\"\r\n"
+             "Content-Length: %ld\r\n"
+             "Connection: close\r\n\r\n", file_name, file_size);
+    send(client_socket, header, strlen(header), 0);
+    char file_buffer[1024];
+    size_t bytes_read;
+    while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), file)) > 0) {
+        send(client_socket, file_buffer, bytes_read, 0);
+    }
+    fclose(file);
+    close(client_socket);
+}
+
+int startSend() {
+    socketInitializeDefault();
+    u32 local_ip = gethostid();
+    u32 correct_ip = __builtin_bswap32(local_ip);
+    char ip_str[16];
+    snprintf(ip_str, sizeof(ip_str), "%d.%d.%d.%d",
+             (correct_ip >> 24) & 0xFF,
+             (correct_ip >> 16) & 0xFF,
+             (correct_ip >> 8) & 0xFF,
+             correct_ip & 0xFF);
+    printf(CONSOLE_ESC(1C)"Switch IP: " CONSOLE_ESC(38;5;226m));
+    printf("%s\n", ip_str);
+    printf(CONSOLE_ESC(38;5;255m));
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket < 0) {
+        printf("Failed to create socket.\n");
+        return 1;
+    }
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(8080);
+    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        printf("Failed to bind socket.\n");
+        close(server_socket);
+        return 1;
+    }
+    if (listen(server_socket, 5) < 0) {
+        printf("Failed to listen on socket.\n");
+        close(server_socket);
+        return 1;
+    }
+    printf(CONSOLE_ESC(1C) "Server is now running\n");
+    consoleUpdate(NULL);
+    while (!shutdown_requested) {
+        struct sockaddr_in client_addr;
+        socklen_t client_len = sizeof(client_addr);
+        int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
+        if (client_socket < 0) {
+            printf("Failed to accept connection.\n");
+            continue;
+        }
+        handleHttp(client_socket);
+    }
+    printf(CONSOLE_ESC(1C) "Shutting down server\n");
+    consoleUpdate(NULL);
+    close(server_socket);
+    socketExit();
+    return 0;
+}
+void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const char *base_path) {
+    DIR* dir = opendir(dir_path);
+    if (!dir) {
+        printf("Failed to open directory: %s\n", dir_path);
+        return;
+    }
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        char file_path[PATH_MAX];
+        snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, entry->d_name);
+        char zip_path[PATH_MAX];
+        snprintf(zip_path, sizeof(zip_path), "%s/%s", base_path, entry->d_name);
+        if (entry->d_type == DT_DIR) {
+            zipDirRec(zip_archive, file_path, zip_path);
+        } else if (entry->d_type == DT_REG) {
+            FILE *file = fopen(file_path, "rb");
+            if (!file) {
+                printf("Failed to open file: %s\n", file_path);
+                continue;
+            }
+            fseek(file, 0, SEEK_END);
+            size_t file_size = ftell(file);
+            fseek(file, 0, SEEK_SET);
+            
+            void *file_data = malloc(file_size);
+            fread(file_data, 1, file_size, file);
+            fclose(file);
+            
+            if (!mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_BEST_COMPRESSION)) {
+                printf("Failed to add file to zip: %s\n", zip_path);
+            }
+            free(file_data);
+        }
+    }
+    closedir(dir);
+}
+void zipDir(const char *dir_path, const char *zip_path) {
+    mz_zip_archive zip_archive;
+    memset(&zip_archive, 0, sizeof(zip_archive));
+
+    if (!mz_zip_writer_init_file(&zip_archive, zip_path, 0)) {
+        printf("Failed to initialize zip archive!\n");
+        return;
+    }
+
+    zipDirRec(&zip_archive, dir_path, "temp");
+    
+    mz_zip_writer_finalize_archive(&zip_archive);
+    mz_zip_writer_end(&zip_archive);
+}
+uint64_t hexToU64(const char *str) {
     uint64_t result = 0;
     for (int i = 0; str[i] != '\0'; i++) {
         char c = tolower(str[i]);
@@ -35,7 +189,6 @@ uint64_t hex_string_to_u64(const char *str) {
     }
     return result;
 }
-
 void drawTitles() {
     printf(CONSOLE_ESC(8;6H));
     for (int i = ((currentPage-1) * 33); i < ((currentPage) * 33); i++) {
@@ -107,7 +260,6 @@ void getTitleName(u64 titleId, u32 recordCount) {
     consoleUpdate(NULL);
     free(buf);
 }
-
 void listTitles() {
     NsApplicationRecord *records = malloc(sizeof(NsApplicationRecord) * 256);
     int32_t recordCount = 0;
@@ -139,7 +291,6 @@ void createTempFoler(const char *path) {
     }
     mkdir(tmp, 0777);
 }
-
 void copySave(const char *src, const char *dest) {
     DIR *dir;
     struct dirent *ent;
@@ -176,9 +327,7 @@ void copySave(const char *src, const char *dest) {
         printf("Failed to open directory: %s\n", src);
     }
 }
-
-
-void remove_directory(const char *path) {
+void removeDir(const char *path) {
     DIR *dir = opendir(path);
     if (dir == NULL) {
         perror("Error opening directory");
@@ -197,7 +346,7 @@ void remove_directory(const char *path) {
             continue;
         }
         if (S_ISDIR(statbuf.st_mode)) {
-            remove_directory(full_path);
+            removeDir(full_path);
         } else {
             if (remove(full_path) != 0) {
                 perror("Error removing file");
@@ -373,7 +522,7 @@ int push() {
         accountExit();
     }
 
-    uint64_t application_id = hex_string_to_u64(pushingTID);
+    uint64_t application_id = hexToU64(pushingTID);
     if (R_SUCCEEDED(rc)) {  
         rc = fsdevMountSaveData("save", application_id, userID);
         if (R_FAILED(rc)) {
@@ -393,9 +542,7 @@ int push() {
     }
     printf(CONSOLE_ESC(1C) "Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
-    FILE *zip = fopen("sdmc:/temp.zip", "wb");
-    zipDir(zip, "sdmc:/temp/", "temp");
-    fclose(zip);
+    zipDir("sdmc:/temp/", "sdmc:/temp.zip");
     socketInitializeDefault();
     rc = nifmInitialize(NifmServiceType_User);
     if (R_FAILED(rc)) {
@@ -424,7 +571,7 @@ int push() {
     }
     remove("sdmc:/temp.zip");
     printf(CONSOLE_ESC(1C) "Deleted sdmc:/temp.zip file\n");
-    remove_directory("sdmc:/temp/");
+    removeDir("sdmc:/temp/");
     printf(CONSOLE_ESC(1C) "Deleted sdmc:/temp/ folder\n");
     return 1;
 }

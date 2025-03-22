@@ -1,12 +1,13 @@
 import socket
 import sys
+import json
+import os
 
-# Configuration
-HOST = "192.168.8.8"  # Replace with your Nintendo Switch's IP address
-PORT = 8080
-FILE_NAME = "temp.zip"
-SHUTDOWN_SIGNAL = b"SHUTDOWN"
-
+def read_host_from_json(file_path, value):
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+        host = data.get(value)
+        return host
 def download_file(host, port, file_name):
     try:
         # Create a socket and connect to the server
@@ -51,7 +52,7 @@ def download_file(host, port, file_name):
         print("Sending shutdown signal...")
         shutdown_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         shutdown_socket.connect((host, port))
-        shutdown_socket.sendall(SHUTDOWN_SIGNAL)
+        shutdown_socket.sendall(b"SHUTDOWN")
         print("Shutdown signal sent.")
     except Exception as e:
         print(f"Error: {e}")
@@ -63,7 +64,12 @@ def download_file(host, port, file_name):
             shutdown_socket.close()
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        HOST = sys.argv[1]  # Allow the host to be passed as a command-line argument
-
-    download_file(HOST, PORT, FILE_NAME)
+    print("Welcome to NX save sync. Select an option by entering 1 or 2.")
+    print("1. Pull current save file from switch to pc")
+    print("2. Push newer save file from pc to switch (SOON)")
+    selected = int(input("> "))
+    if (selected == 1) :
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        json_file_path = os.path.join(script_dir, 'config.json')    
+        host = read_host_from_json(json_file_path, "host")
+        download_file(host, 8080, "temp.zip")
