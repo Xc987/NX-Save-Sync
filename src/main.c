@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
         if (kDown & HidNpadButton_Plus) {
+            returnValue = 3;
             break;
         }
         if (kDown & HidNpadButton_AnyUp) {
@@ -46,17 +47,19 @@ int main(int argc, char **argv) {
     }
     if (returnValue == 0) {
         printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
-    } else {
+    } else if (returnValue == 1) {
         printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
     }
-    printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Press PLUS key to exit.\n" );
-    while(appletMainLoop()){
-        padUpdate(&pad);
-        u64 kDown = padGetButtonsDown(&pad);
-        if (kDown & HidNpadButton_Plus) {
-            break;
+    if (returnValue == 0 || returnValue == 1) {
+        printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Press PLUS key to exit.\n" );
+        while(appletMainLoop()){
+            padUpdate(&pad);
+            u64 kDown = padGetButtonsDown(&pad);
+            if (kDown & HidNpadButton_Plus) {
+                break;
+            }
+            consoleUpdate(NULL);
         }
-        consoleUpdate(NULL);
     }
     consoleExit(NULL);
     return 0;

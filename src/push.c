@@ -13,6 +13,7 @@
 volatile bool shutdown_requested = false;
 char titleNames[256][100];
 char titleIDS[256][17];
+int totalApps = 0;
 int arrayNum = 0;
 int currentPage = 1;
 int maxPages = 1;
@@ -69,7 +70,6 @@ void handleHttp(int client_socket) {
     fclose(file);
     close(client_socket);
 }
-
 int startSend() {
     socketInitializeDefault();
     u32 local_ip = gethostid();
@@ -256,6 +256,7 @@ void getTitleName(u64 titleId, u32 recordCount) {
     strcpy(titleIDS[arrayNum], titleIdStr);
     arrayNum += 1;
     printf(CONSOLE_ESC(6;6H));
+    totalApps = recordCount;
     printf("Scanning installed titles, %d of %d",arrayNum, recordCount);
     consoleUpdate(NULL);
     free(buf);
@@ -422,7 +423,7 @@ int push() {
             }
             if (held) {
                 while (padGetButtons(&pad) & HidNpadButton_AnyDown) {
-                    if (selectedInPage != 33) {
+                    if (selectedInPage != 33 && selected != totalApps) {
                         clearSelected();
                         selectedInPage += 1;
                         selected += 1;
@@ -433,7 +434,7 @@ int push() {
                     padUpdate(&pad);
                 }
             } else {
-                if (selectedInPage != 33) {
+                if (selectedInPage != 33 && selected != totalApps) {
                     clearSelected();
                     selectedInPage += 1;
                     selected += 1;
