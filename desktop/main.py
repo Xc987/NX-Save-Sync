@@ -87,6 +87,7 @@ if __name__ == "__main__":
                         print(f"Added key '{subfolders[0]}' to config.json")
             else:
                 print("Couldnt find any TID subfolders in /temp/")
+                exit()
         else:
             print("Couldnt find temp folder!")
             exit()

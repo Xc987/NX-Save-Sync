@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
         }
         consoleUpdate(NULL);
     }
+    printf("\n");
     if (returnValue == 0) {
         printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
     } else if (returnValue == 1) {
