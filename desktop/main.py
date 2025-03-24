@@ -2,7 +2,23 @@ import socket
 import json
 import zipfile
 import os
+import sys
 import shutil
+from pathlib import Path
+
+def checkConfig():
+    appdataPath = os.getenv('LOCALAPPDATA')
+    if not appdataPath:
+        appdataPath = Path.home() / 'AppData' / 'Local'
+    configDir = Path(appdataPath) / 'NX-Save-Sync'
+    configDir.mkdir(exist_ok=True)
+    configFile = configDir / 'config.json'
+    if not configFile.exists():
+        with open(configFile, 'w') as f:
+            print("\nPlease input the Switch ip")
+            hostIp = input("> ")
+            json.dump({"host": hostIp}, f, indent=4) 
+    return configFile
 
 def downloadZip(host, port, file_name):
     try:
@@ -17,12 +33,14 @@ def downloadZip(host, port, file_name):
                 break
             response += data
         if b"200 OK" not in response:
-            print("File not found or server error.")
-            exit()
+            print("File not found or server error!")
+            input("Press enter to exit")
+            sys.exit(0)
         header_end = response.find(b"\r\n\r\n")
         if header_end == -1:
-            print("Invalid HTTP response.")
-            exit()
+            print("Invalid HTTP response!")
+            input("Press enter to exit")
+            sys.exit(0)
         file_content = response[header_end + 4:]
         with open(file_name, "wb") as file:
             file.write(file_content)
@@ -34,6 +52,8 @@ def downloadZip(host, port, file_name):
         print("Shuting down server.")
     except Exception as e:
         print(f"{e}")
+        input("Press enter to exit")
+        sys.exit(0)
     finally:
         if 'client_socket' in locals():
             client_socket.close()
@@ -45,79 +65,86 @@ if __name__ == "__main__":
     print("1. Pull current save file from switch to pc")
     print("2. Push newer save file from pc to switch (SOON)")
     selected = int(input("> "))
-    if (selected == 1) :
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        json_file_path = os.path.join(script_dir, 'config.json')
-        if not os.path.exists(json_file_path):
-            print("config.json file not found!")
-            exit() 
-        with open(json_file_path, 'r') as file:
+    if (selected == 1):
+        configFile = checkConfig()
+        if getattr(sys, 'frozen', False):
+            scriptDir = os.path.dirname(sys.executable)
+        elif __file__:
+            scriptDir = os.path.dirname(__file__)
+        with open(configFile, 'r') as file:
             data = json.load(file)
             host = data.get("host")
             if host:
-                print(f"Connecting to host: {host}")
-            else:
-                print("Host key is not found in config.json!")
-                exit()
+                print(f"\nConnecting to host: {host}")
         downloadZip(host, 8080, "temp.zip")
-        zip_path = os.path.join(script_dir, "temp.zip")
-        if os.path.exists(zip_path):
+        zipFile = os.path.join(scriptDir, "temp.zip")
+        if os.path.exists(zipFile):
             print("Unzipping temp.zip")
         else:
             print("Couldnt find temp.zip!")
-            exit()
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(script_dir)
-        temp_dir = os.path.join(script_dir, "temp")
-        if os.path.exists(temp_dir) and os.path.isdir(temp_dir):
-            subfolders = [f.name for f in os.scandir(temp_dir) if f.is_dir()]
-            if len(subfolders) == 1:
-                with open(json_file_path, 'r') as file:
+            input("Press enter to exit")
+            sys.exit(0)
+        with zipfile.ZipFile(zipFile, 'r') as zipRef:
+            zipRef.extractall(scriptDir)
+        tempDir = os.path.join(scriptDir, "temp")
+        if os.path.exists(tempDir) and os.path.isdir(tempDir):
+            subFolder = [f.name for f in os.scandir(tempDir) if f.is_dir()]
+            if len(subFolder) == 1:
+                with open(configFile, 'r') as file:
                     data = json.load(file)
-                    if subfolders[0] in data:
-                        print(f"The key '{subfolders[0]}' already exists.")
-                    else:
-                        print("Please enter the emulator save directory for TID", subfolders[0])
+                    titleDir = os.path.join(tempDir, subFolder[0])
+                    titleFile = os.path.join(titleDir, "Title_Name/")
+                    entries = os.listdir(titleFile)
+                    files = [entry for entry in entries if os.path.isfile(os.path.join(titleFile, entry))]
+                    if len(files) == 1:
+                        titleName = files[0]
+                        shutil.rmtree(titleFile)
+                    if not subFolder[0] in data:
+                        print("Please enter the emulator save directory for ", titleName, ". ", "This will erase the entire directory!", sep="")
                         emuPath = (input("> "))
-                        with open(json_file_path, 'r') as file:
+                        with open(configFile, 'r') as file:
                             data = json.load(file)
-                            data[subfolders[0]] = emuPath
-                        with open(json_file_path, 'w') as file:
+                            data[subFolder[0]] = [emuPath, titleName]
+                        with open(configFile, 'w') as file:
                             json.dump(data, file, indent=4)
-                        print(f"Added key '{subfolders[0]}' to config.json")
             else:
-                print("Couldnt find any TID subfolders in /temp/")
-                exit()
+                print("Couldnt find any TID subfolders in /temp/!")
+                input("Press enter to exit")
+                sys.exit(0)
         else:
             print("Couldnt find temp folder!")
-            exit()
-        with open(json_file_path, 'r') as file:
+            input("Press enter to exit")
+            sys.exit(0)
+        with open(configFile, 'r') as file:
             data = json.load(file)
-            dst_folder = data.get(subfolders[0])
-        src_folder = os.path.join(temp_dir, subfolders[0])
-        if os.path.exists(dst_folder):
-            print(f"Deleting any existing save file in {dst_folder}")
+            titleArray = data[subFolder[0]]
+            dstDir = titleArray[0]
+        srcDir = os.path.join(tempDir, subFolder[0])
+        if os.path.exists(dstDir):
+            print(f"Deleting any existing save file in {dstDir}")
         else:
-            print(f"The directory {dst_folder} does not exist.")
-            exit()
-        for item in os.listdir(dst_folder):
-                item_path = os.path.join(dst_folder, item)
+            print(f"The directory {dstDir} does not exist!")
+            input("Press enter to exit")
+            sys.exit(0)
+        for item in os.listdir(dstDir):
+                itemPath = os.path.join(dstDir, item)
                 try:
-                    if os.path.isfile(item_path) or os.path.islink(item_path):
-                        os.unlink(item_path)
-                    elif os.path.isdir(item_path):
-                        shutil.rmtree(item_path)
+                    if os.path.isfile(itemPath) or os.path.islink(itemPath):
+                        os.unlink(itemPath)
+                    elif os.path.isdir(itemPath):
+                        shutil.rmtree(itemPath)
                 except Exception as e:
-                    print(f"Failed to delete {item_path}. Reason: {e}")
-        print(f"Moving save file from /temp/{subfolders[0]} to {dst_folder}")
-        for item in os.listdir(src_folder):
-            src_item = os.path.join(src_folder, item)
-            dst_item = os.path.join(dst_folder, item)
-            if os.path.isfile(src_item):
-                shutil.copy2(src_item, dst_item)
-            elif os.path.isdir(src_item):
-                shutil.copytree(src_item, dst_item)
+                    print(f"Failed to delete {itemPath}. Reason: {e}")
+        print(f"Moving save file from {srcDir} to {dstDir}")
+        for item in os.listdir(srcDir):
+            srcItem = os.path.join(srcDir, item)
+            dstItem = os.path.join(dstDir, item)
+            if os.path.isfile(srcItem):
+                shutil.copy2(srcItem, dstItem)
+            elif os.path.isdir(srcItem):
+                shutil.copytree(srcItem, dstItem)
         print("Deleteing temp.zip file")
-        os.remove(zip_path)
+        os.remove(zipFile)
         print("Deleteing temp folder")
-        shutil.rmtree(temp_dir)
+        shutil.rmtree(tempDir)
+    input("Press enter to exit")

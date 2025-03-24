@@ -548,8 +548,8 @@ int push() {
         printf("Mounting save:/\n");
         consoleUpdate(NULL);
     }
+    char title_id_folder[64];
     if (R_SUCCEEDED(rc)) {
-        char title_id_folder[64];
         snprintf(title_id_folder, sizeof(title_id_folder), "sdmc:/temp/%s/", pushingTID);
         printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
         printf("Exporting save data from save:/ to %s\n", title_id_folder);
@@ -563,6 +563,13 @@ int push() {
         printf("Unmounting save:/\n");
         consoleUpdate(NULL);
     }
+    char title_name_folder[128];
+    snprintf(title_name_folder, sizeof(title_name_folder), "%sTitle_Name/", title_id_folder);
+    mkdir(title_name_folder, 0777);
+    char title_name_file[256];
+    snprintf(title_name_file, sizeof(title_name_file), "%s%s", title_name_folder, pushingTitle);
+    FILE *file = fopen(title_name_file, "w");
+    fclose(file); 
     printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
     printf("Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
