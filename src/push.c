@@ -535,7 +535,6 @@ int push() {
         }
         accountExit();
     }
-
     uint64_t application_id = hexToU64(pushingTID);
     if (R_SUCCEEDED(rc)) {  
         rc = fsdevMountSaveData("save", application_id, userID);
@@ -544,24 +543,18 @@ int push() {
             printf("fsdevMountSaveData() failed!\n" CONSOLE_ESC(0m));
             return 0;
         }
-        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-        printf("Mounting save:/\n");
-        consoleUpdate(NULL);
     }
     char title_id_folder[64];
     if (R_SUCCEEDED(rc)) {
         snprintf(title_id_folder, sizeof(title_id_folder), "sdmc:/temp/%s/", pushingTID);
         printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
-        printf("Exporting save data from save:/ to %s\n", title_id_folder);
+        printf("Exporting save data\n");
         consoleUpdate(NULL);
         copySave("save:/", title_id_folder);
         printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-        printf("Exporting save data from save:/ to %s\n", title_id_folder);
+        printf("Exporting save data\n");
         consoleUpdate(NULL);
         fsdevUnmountDevice("save");
-        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-        printf("Unmounting save:/\n");
-        consoleUpdate(NULL);
     }
     char title_name_folder[128];
     snprintf(title_name_folder, sizeof(title_name_folder), "%sTitle_Name/", title_id_folder);

@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
     drawBorder();
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Welcome to NX save sync. Select an option\n");
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(48;5;20m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
-    printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch (SOON)\n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch\n" CONSOLE_ESC(0m));
     while(appletMainLoop()){
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
@@ -24,14 +24,14 @@ int main(int argc, char **argv) {
         if (kDown & HidNpadButton_AnyUp) {
             if (selected != 1) {
                 printf(CONSOLE_ESC(3;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
-                printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch (SOON)                                 \n" CONSOLE_ESC(0m));
+                printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
                 selected -= 1;
             }
         }
         if (kDown & HidNpadButton_AnyDown) {
             if (selected != 2) {
                 printf(CONSOLE_ESC(3;2H) CONSOLE_ESC(38;5;240m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
-                printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch (SOON)                                 \n" CONSOLE_ESC(0m));
+                printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
                 selected += 1;
             }
         }
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
             if (selected == 1) {
                 returnValue = push();
             } else if (selected == 2) {
-                // SOON
+                returnValue = pull();
             }
             break;
         }
