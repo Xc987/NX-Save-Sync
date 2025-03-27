@@ -159,6 +159,7 @@ class uploadZip:
             print("\033[32m[ OK ]\033[0m Shutting down server")
 
 if __name__ == "__main__":
+    os.system("")
     print("Welcome to NX save sync. Select an option.")
     lines = ["Pull current save file from switch to pc", 
              "Push newer save file from pc to switch"]
@@ -282,7 +283,7 @@ if __name__ == "__main__":
             sys.exit(0)
         selected = 0
         visible_lines = min(10, len(titles))
-        while True:        
+        while True:
             start_idx = max(0, selected - visible_lines // 2)
             end_idx = min(len(titles), start_idx + visible_lines)
             start_idx = max(0, end_idx - visible_lines)
@@ -291,24 +292,16 @@ if __name__ == "__main__":
                 print(f"{prefix}{titles[i]}\033[0m")
             key = get_key()
             if key == 'up':
-                if (len(titles) > 10):
-                    clear_lines(10)
-                else:
-                    clear_lines(len(titles))
                 selected = max(0, selected - 1)
             elif key == 'down':
-                if (len(titles) > 10):
-                    clear_lines(10)
-                else:
-                    clear_lines(len(titles))
                 selected = min(len(titles) - 1, selected + 1)
             elif key == 'enter':
-                if (len(titles) > 10):
-                    clear_lines(10)
-                else:
-                    clear_lines(len(titles) + 1)
                 break
-        print(f"\033[96m[INFO]\033[0m Selected title: {titles[selected]}")
+            if (len(titles) > 10):
+                clear_lines(10)
+            else:
+                clear_lines(len(titles)) 
+        print(f"\n\033[96m[INFO]\033[0m Selected title: {titles[selected]}")
         print(f"\033[96m[INFO]\033[0m Selected TID: {keys[selected]}")
         print(f"\033[96m[INFO]\033[0m Title save data path: {paths[selected]}")
         tempDir = os.path.join(scriptDir, "temp")

@@ -180,6 +180,10 @@ static bool unzip(const char *zip_path, const char *extract_path) {
     return true;
 }
 static void createConfig() {
+    printf(CONSOLE_ESC(38;5;128m) CONSOLE_ESC(1C) "[LOAD] " CONSOLE_ESC(38;5;255m));
+    printf("Please input the PC ip:\n");
+    consoleUpdate(NULL);
+    svcSleepThread(2000000000);
     SwkbdConfig keyboard;
     char inputText[256] = {0};
     Result rc = 0;
@@ -188,6 +192,7 @@ static void createConfig() {
         swkbdConfigMakePresetDefault(&keyboard);
         swkbdConfigSetInitialText(&keyboard, inputText);
         swkbdConfigSetStringLenMax(&keyboard, 255);
+        swkbdConfigSetGuideText(&keyboard, "192.168.X.X");
         rc = swkbdShow(&keyboard, inputText, sizeof(inputText));
         swkbdClose(&keyboard); 
         if (R_FAILED(rc) || strcmp(inputText, "") == 0) {
@@ -284,13 +289,13 @@ int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
+    printf(CONSOLE_ESC(6;1H));
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (!file) {
         createConfig();
     } else {
         fclose(file);
     }
-    printf(CONSOLE_ESC(6;1H));
     Result rc = 0;
     AccountUid userID={0};
     AccountProfile profile;
