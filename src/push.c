@@ -203,7 +203,7 @@ void drawTitles() {
         printf(CONSOLE_ESC(5C));
     }
 }
-void clearTitles() {
+static void clearTitles() {
     printf(CONSOLE_ESC(5;4H));
     for (int i = 0; i < 37; i++) {
         printf("%-73s\n", "");
@@ -385,7 +385,11 @@ int push() {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
         if (kDown & HidNpadButton_Plus) {
-            break;
+            printf(CONSOLE_ESC(0m));
+            clearTitles();
+            printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(38;5;240m) "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
+            return 2;
         }
         if (padGetButtonsDown(&pad) & HidNpadButton_AnyUp) {
             u64 startTime = armGetSystemTick();
@@ -486,7 +490,8 @@ int push() {
     }
     nsExit();
     printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
-    printf(CONSOLE_ESC(7;1H));
+    printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(38;5;240m) "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(8;1H));
     printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m));
     printf("Selected title: %s with TID %s\n", pushingTitle, pushingTID);
     consoleUpdate(NULL);

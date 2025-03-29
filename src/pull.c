@@ -179,32 +179,6 @@ static bool unzip(const char *zip_path, const char *extract_path) {
     mz_zip_reader_end(&zip_archive);
     return true;
 }
-static void createConfig() {
-    printf(CONSOLE_ESC(38;5;128m) CONSOLE_ESC(1C) "[LOAD] " CONSOLE_ESC(38;5;255m));
-    printf("Please input the PC ip:\n");
-    consoleUpdate(NULL);
-    svcSleepThread(2000000000);
-    SwkbdConfig keyboard;
-    char inputText[256] = {0};
-    Result rc = 0;
-    rc = swkbdCreate(&keyboard, 0);
-    if (R_SUCCEEDED(rc)){
-        swkbdConfigMakePresetDefault(&keyboard);
-        swkbdConfigSetInitialText(&keyboard, inputText);
-        swkbdConfigSetStringLenMax(&keyboard, 255);
-        swkbdConfigSetGuideText(&keyboard, "192.168.X.X");
-        rc = swkbdShow(&keyboard, inputText, sizeof(inputText));
-        swkbdClose(&keyboard); 
-        if (R_FAILED(rc) || strcmp(inputText, "") == 0) {
-            strcpy(inputText, "(No text entered)");
-        }
-    }
-    FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
-    if (file) {
-        fprintf(file, "{\"host\":\"%s\"}", inputText);
-        fclose(file);
-    }
-}
 static int getValue(const char *json, const char *key, char *value, size_t value_size) {
     char search_str[64];
     snprintf(search_str, sizeof(search_str), "\"%s\":\"", key);
@@ -289,12 +263,12 @@ int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
-    printf(CONSOLE_ESC(7;1H));
+    printf(CONSOLE_ESC(8;1H));
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (!file) {
-        createConfig();
-    } else {
-        fclose(file);
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
+        printf("PC IP not set!\n" CONSOLE_ESC(0m));
+        return 0;
     }
     Result rc = 0;
     file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
@@ -309,6 +283,8 @@ int pull() {
             printf("Connecting to host: %s\n", host);
             consoleUpdate(NULL);
         }
+    } else {
+        fclose(file);
     }
     downloadZip();
     printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));

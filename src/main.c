@@ -5,11 +5,51 @@
 #include <time.h>
 #include "main.h"
 
+static int selected = 1;
 char userNames[256][100];
 AccountUid userAccounts[10];
 int selectedUser = 0;
 s32 total_users = 0;
 
+static void drawSelected() {
+    if (selected == 1) {
+        printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(38;5;240m) "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
+    } else if (selected == 2) {
+        printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(38;5;240m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(38;5;240m) "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
+    } else if (selected == 3) {
+        printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(38;5;240m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m)  "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
+    }
+}
+static void createConfig() {
+    SwkbdConfig keyboard;
+    char inputText[16] = {0};
+    Result rc = 0;
+    rc = swkbdCreate(&keyboard, 0);
+    if (R_SUCCEEDED(rc)) {
+        swkbdConfigMakePresetDefault(&keyboard);
+        swkbdConfigSetInitialText(&keyboard, inputText);
+        swkbdConfigSetStringLenMax(&keyboard, 15);
+        swkbdConfigSetOkButtonText(&keyboard, "Submit");
+        swkbdConfigSetSubText(&keyboard, "Please input PC IP");
+        swkbdConfigSetGuideText(&keyboard, "192.168.XXX.XXX");
+        rc = swkbdShow(&keyboard, inputText, sizeof(inputText));
+        swkbdClose(&keyboard); 
+        if (R_FAILED(rc) || strcmp(inputText, "") == 0) {
+            strcpy(inputText, "192.168.0.0");
+        }
+    }
+    FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+    if (file) {
+        fprintf(file, "{\"host\":\"%s\"}", inputText);
+        fclose(file);
+    }
+}
 void printTime() {
     printf(CONSOLE_ESC(1;61H));
     time_t now = time(NULL);
@@ -24,42 +64,19 @@ void printTime() {
                timeinfo->tm_sec);
     printf(CONSOLE_ESC(0m));
 }
-
-bool stringToAccountUid(const char* uid_str, AccountUid* out_uid) {
-    if (strlen(uid_str) != 32) return false;
-    
-    char high_str[17] = {0};
-    char low_str[17] = {0};
-    
-    memcpy(high_str, uid_str, 16);
-    memcpy(low_str, uid_str + 16, 16);
-    
-    out_uid->uid[1] = strtoull(high_str, NULL, 16);
-    out_uid->uid[0] = strtoull(low_str, NULL, 16);
-    
-    return true;
-}
-
-void getUsers() {
-        Result rc = accountInitialize(AccountServiceType_System);
+static void getUsers() {
+    Result rc = accountInitialize(AccountServiceType_System);
     if (R_FAILED(rc)) {
-        printf("Failed to initialize account service: 0x%x\n", rc);
-        consoleUpdate(NULL);
         goto cleanup;
     }
-    
     rc = accountGetUserCount(&total_users);
     if (R_FAILED(rc)) {
-        printf("Failed to get user count: 0x%x\n", rc);
-        consoleUpdate(NULL);
         goto cleanup;
     }
     AccountUid *user_ids = (AccountUid *)malloc(sizeof(AccountUid) * total_users);
     s32 actual_users = 0;
     rc = accountListAllUsers(user_ids, total_users, &actual_users);
     if (R_FAILED(rc)) {
-        printf("Failed to list users: 0x%x\n", rc);
-        consoleUpdate(NULL);
         free(user_ids);
         goto cleanup;
     }
@@ -69,23 +86,19 @@ void getUsers() {
         userAccounts[i] = user_ids[i];
         rc = accountGetProfile(&profile, user_ids[i]);
         if (R_FAILED(rc)) {
-            printf("User %d: Failed to get profile (0x%x)\n", i+1, rc);
             continue;
         }
         rc = accountProfileGet(&profile, NULL, &profile_base);
         if (R_FAILED(rc)) {
-            printf("User %d: Failed to get profile base (0x%x)\n", i+1, rc);
             accountProfileClose(&profile);
             continue;
         }
         strcpy(userNames[i], profile_base.nickname);
         accountProfileClose(&profile);
     }
-    
     free(user_ids);
-    
-cleanup:
-    accountExit();
+    cleanup:
+        accountExit();
 }
 
 int main(int argc, char **argv) {
@@ -93,7 +106,6 @@ int main(int argc, char **argv) {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
-    int selected = 1;
     int returnValue = 0;
     getUsers();
     drawBorder();
@@ -101,6 +113,7 @@ int main(int argc, char **argv) {
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Select an option.\n");
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(48;5;20m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch\n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;240m) "Set / Change PC IP\n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(45;2H) CONSOLE_ESC(38;5;255m));
     printf("Selected user: %s", userNames[selectedUser]);
     printf(CONSOLE_ESC(45;67H) CONSOLE_ESC(38;5;255m));
@@ -129,16 +142,14 @@ int main(int argc, char **argv) {
         }
         if (kDown & HidNpadButton_AnyUp) {
             if (selected != 1) {
-                printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
-                printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
                 selected -= 1;
+                drawSelected();
             }
         }
         if (kDown & HidNpadButton_AnyDown) {
-            if (selected != 2) {
-                printf(CONSOLE_ESC(4;2H) CONSOLE_ESC(38;5;240m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
-                printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
+            if (selected != 3) {
                 selected += 1;
+                drawSelected();
             }
         }
         if (kDown & HidNpadButton_ZL) {
@@ -160,10 +171,13 @@ int main(int argc, char **argv) {
         if (kDown & HidNpadButton_A) {
             if (selected == 1) {
                 returnValue = push();
+                break;
             } else if (selected == 2) {
                 returnValue = pull();
+                break;
+            } else if (selected == 3) {
+                createConfig();
             }
-            break;
         }
         printTime();
         consoleUpdate(NULL);
@@ -173,8 +187,11 @@ int main(int argc, char **argv) {
         printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
     } else if (returnValue == 1) {
         printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
+    } else if (returnValue == 2) {
+        printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "Process was aborted.\n" CONSOLE_ESC(0m));
+        svcSleepThread(800000000);
     }
-    if (returnValue == 0 || returnValue == 1) {
+    if (returnValue == 0 || returnValue == 1 || returnValue == 2) {
         printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Press PLUS key to exit.\n" );
         while(appletMainLoop()){
             padUpdate(&pad);
@@ -182,6 +199,7 @@ int main(int argc, char **argv) {
             if (kDown & HidNpadButton_Plus) {
                 break;
             }
+            printTime();
             consoleUpdate(NULL);
         }
     }
