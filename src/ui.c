@@ -56,3 +56,9 @@ void drawAppMenu() {
     }
     printf(CONSOLE_ESC(48;5;0m));
 }
+void clearSelectedUser() {
+    printf(CONSOLE_ESC(45;2H));
+    for (int i = 0; i < 25; i++) {
+        printf("%c",196);
+    }
+}

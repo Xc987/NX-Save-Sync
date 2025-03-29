@@ -289,7 +289,7 @@ int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
-    printf(CONSOLE_ESC(6;1H));
+    printf(CONSOLE_ESC(7;1H));
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (!file) {
         createConfig();
@@ -297,57 +297,6 @@ int pull() {
         fclose(file);
     }
     Result rc = 0;
-    AccountUid userID={0};
-    AccountProfile profile;
-    AccountUserData userdata;
-    AccountProfileBase profilebase;
-    char nickname[0x21];
-    memset(&userdata, 0, sizeof(userdata));
-    memset(&profilebase, 0, sizeof(profilebase));
-    rc = accountInitialize(AccountServiceType_Application);
-    if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-        printf("accountInitialize() failed!\n" CONSOLE_ESC(0m));
-        return 0;
-    }
-    if (R_SUCCEEDED(rc)) {
-        rc = accountGetPreselectedUser(&userID);
-        if (R_FAILED(rc)) {
-            PselUserSelectionSettings settings;
-            memset(&settings, 0, sizeof(settings));
-            rc = pselShowUserSelector(&userID, &settings);
-        }
-        if (R_FAILED(rc)) {
-            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-            printf("pselShowUserSelector() failed!\n" CONSOLE_ESC(0m));
-            return 0;
-        }
-        if (R_SUCCEEDED(rc)) {
-            rc = accountGetProfile(&profile, userID);
-            if (R_FAILED(rc)) {
-                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-                printf("accountGetProfile() failed!\n" CONSOLE_ESC(0m));
-                return 0;
-            }
-        }
-        if (R_SUCCEEDED(rc)) {
-            rc = accountProfileGet(&profile, &userdata, &profilebase);
-            if (R_FAILED(rc)) {
-                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-                printf("accountProfileGet() failed!\n" CONSOLE_ESC(0m));
-                return 0;
-            }
-            if (R_SUCCEEDED(rc)) {
-                memset(nickname,  0, sizeof(nickname));
-                strncpy(nickname, profilebase.nickname, sizeof(nickname)-1);
-                printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m));
-                printf("Selected user: %s\n", nickname);
-                consoleUpdate(NULL);
-            }
-            accountProfileClose(&profile);
-        }
-        accountExit();
-    }
     file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (file) {
         char buffer[512];
@@ -397,7 +346,7 @@ int pull() {
     hexToUpper(folderName);
     uint64_t application_id = hexToU64(folderName);
     if (R_SUCCEEDED(rc)) {
-        rc = fsdevMountSaveData("save", application_id, userID);
+        rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
         if (R_FAILED(rc)) {
             printf("Failed to mount save: 0x%x\n", rc);
         }

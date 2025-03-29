@@ -378,7 +378,7 @@ int push() {
     maxPages += arrayNum / 33;
     printf(CONSOLE_ESC(6;6H));
     printf("                                                                      ");
-    printf(CONSOLE_ESC(6;18H)"%s%d%s", "Select a title. Page 1 / ", maxPages, " (L / R - Move pages)");
+    printf(CONSOLE_ESC(6;28H)"%s%d", "Select a title. Page 1 / ", maxPages);
     drawTitles();
     drawSelected();
     while (appletMainLoop()) {
@@ -457,6 +457,9 @@ int push() {
                 selectedInPage = 1;
                 drawTitles();
                 drawSelected();
+                printf(CONSOLE_ESC(6;6H));
+                printf("                                                                      ");
+                printf(CONSOLE_ESC(6;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
             }
         }
         if (kDown & HidNpadButton_R) {
@@ -467,6 +470,9 @@ int push() {
                 selectedInPage = 1;
                 drawTitles();
                 drawSelected();
+                printf(CONSOLE_ESC(6;6H));
+                printf("                                                                      ");
+                printf(CONSOLE_ESC(6;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
             }
         }
         if (kDown & HidNpadButton_A) {
@@ -479,65 +485,15 @@ int push() {
         consoleUpdate(NULL);
     }
     nsExit();
-    printf(CONSOLE_ESC(6;1H));
+    printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(7;1H));
     printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m));
     printf("Selected title: %s with TID %s\n", pushingTitle, pushingTID);
     consoleUpdate(NULL);
     Result rc=0;
-    AccountUid userID={0};
-    AccountProfile profile;
-    AccountUserData userdata;
-    AccountProfileBase profilebase;
-    char nickname[0x21];
-    memset(&userdata, 0, sizeof(userdata));
-    memset(&profilebase, 0, sizeof(profilebase));
-    rc = accountInitialize(AccountServiceType_Application);
-    if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-        printf("accountInitialize() failed!\n" CONSOLE_ESC(0m));
-        return 0;
-    }
-    if (R_SUCCEEDED(rc)) {
-        rc = accountGetPreselectedUser(&userID);
-        if (R_FAILED(rc)) {
-            PselUserSelectionSettings settings;
-            memset(&settings, 0, sizeof(settings));
-            rc = pselShowUserSelector(&userID, &settings);
-        }
-        if (R_FAILED(rc)) {
-            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-            printf("pselShowUserSelector() failed!\n" CONSOLE_ESC(0m));
-            return 0;
-        }
-        if (R_SUCCEEDED(rc)) {
-            rc = accountGetProfile(&profile, userID);
-            if (R_FAILED(rc)) {
-                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-                printf("accountGetProfile() failed!\n" CONSOLE_ESC(0m));
-                return 0;
-            }
-        }
-        if (R_SUCCEEDED(rc)) {
-            rc = accountProfileGet(&profile, &userdata, &profilebase);
-            if (R_FAILED(rc)) {
-                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-                printf("accountProfileGet() failed!\n" CONSOLE_ESC(0m));
-                return 0;
-            }
-            if (R_SUCCEEDED(rc)) {
-                memset(nickname,  0, sizeof(nickname));
-                strncpy(nickname, profilebase.nickname, sizeof(nickname)-1);
-                printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m));
-                printf("Selected user: %s\n", nickname);
-                consoleUpdate(NULL);
-            }
-            accountProfileClose(&profile);
-        }
-        accountExit();
-    }
     uint64_t application_id = hexToU64(pushingTID);
     if (R_SUCCEEDED(rc)) {  
-        rc = fsdevMountSaveData("save", application_id, userID);
+        rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
         if (R_FAILED(rc)) {
             printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
             printf("fsdevMountSaveData() failed!\n" CONSOLE_ESC(0m));
