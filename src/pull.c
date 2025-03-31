@@ -12,12 +12,6 @@
 #include "main.h"
 #include "miniz.h"
 
-#define SERVER_IP "192.168.8.22"
-#define MOUNT_PATH "sdmc:/"
-#define ZIP_PATH MOUNT_PATH "temp.zip"
-#define EXTRACT_PATH MOUNT_PATH
-#define TEMP_DIR "sdmc:/temp/"
-
 static void removeDir(const char *path) {
     DIR *dir = opendir(path);
     if (dir == NULL) {
@@ -53,7 +47,6 @@ static void cleanDir(const char *path) {
     DIR *dir;
     struct dirent *ent;
     char full_path[512];
-
     if ((dir = opendir(path)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
@@ -63,11 +56,9 @@ static void cleanDir(const char *path) {
             snprintf(full_path, sizeof(full_path), "%s/%s", path, ent->d_name);
 
             if (ent->d_type == DT_DIR) {
-                // Recursively delete subdirectory
                 cleanDir(full_path);
                 rmdir(full_path);
             } else {
-                // Delete file
                 remove(full_path);
             }
         }
@@ -82,9 +73,6 @@ static uint64_t hexToU64(const char *str) {
             result = (result << 4) | (c - '0');
         } else if (c >= 'a' && c <= 'f') {
             result = (result << 4) | (c - 'a' + 10);
-        } else {
-            printf("Invalid hex character: %c\n", c);
-            return 0;
         }
     }
     return result;
@@ -99,6 +87,12 @@ static void moveSave(const char *src, const char *dest) {
     struct dirent *ent;
     char src_path[512];
     char dest_path[512];
+    if (mkdir(dest, 0755) == -1) {
+        if (errno != EEXIST) {
+            printf("Failed to create directory: %s\n", dest);
+            return;
+        }
+    }
     if ((dir = opendir(src)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
@@ -121,6 +115,8 @@ static void moveSave(const char *src, const char *dest) {
                     fclose(dest_file);
                 } else {
                     printf("Failed to copy: %s\n", src_path);
+                    if (src_file) fclose(src_file);
+                    if (dest_file) fclose(dest_file);
                 }
             }
         }
@@ -195,7 +191,7 @@ static int getValue(const char *json, const char *key, char *value, size_t value
     value[len] = '\0';
     return 1;
 }
-static int downloadZip() {
+static int downloadZip(char *host) {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
@@ -210,7 +206,7 @@ static int downloadZip() {
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
-    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
+    inet_pton(AF_INET, host, &server_addr.sin_addr);
     int connect_result = connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (connect_result < 0 && errno != EINPROGRESS) {
         printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Connection failed immediately.\n" CONSOLE_ESC(0m));
@@ -327,25 +323,25 @@ int pull() {
             printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
             printf("Connecting to host: %s\n", host);
             consoleUpdate(NULL);
+            int result = downloadZip(host);
+            if (result == 0) {
+                return 0;
+            } else if (result == 2) {
+                return 2;
+            }
         }
     } else {
         fclose(file);
     }
-    int result = downloadZip();
-    if (result == 0) {
-        return 0;
-    } else if (result == 2) {
-        return 2;
-    }
     printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
     printf("Unzipping temp.zip\n");
     consoleUpdate(NULL);
-    FILE *test = fopen(ZIP_PATH, "rb");
+    FILE *test = fopen("sdmc:/temp.zip", "rb");
     if(!test) {
-        printf("\nError: %s not found!\n", ZIP_PATH);
+        printf("\nError: %s not found!\n", "temp.zip");
     } else {
         fclose(test);
-        unzip(ZIP_PATH, EXTRACT_PATH);
+        unzip("sdmc:/temp.zip", "sdmc:/");
     }
     printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
     printf("Unzipping temp.zip\n");
@@ -354,12 +350,12 @@ int pull() {
     struct dirent *ent;
     char *folderName = NULL;
     int folderCount = 0;
-    dir = opendir(TEMP_DIR);
+    dir = opendir("sdmc:/temp/");
     while ((ent = readdir(dir)) != NULL) {
         if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
             continue;
         char fullPath[PATH_MAX];
-        snprintf(fullPath, sizeof(fullPath), "%s%s", TEMP_DIR, ent->d_name);
+        snprintf(fullPath, sizeof(fullPath), "%s%s", "sdmc:/temp/", ent->d_name);
         
         DIR *testDir = opendir(fullPath);
         if (testDir != NULL) {

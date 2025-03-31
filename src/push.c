@@ -491,9 +491,10 @@ int push() {
                 selectedInPage = 1;
                 drawTitles();
                 drawSelected();
-                printf(CONSOLE_ESC(6;6H));
+                printf(CONSOLE_ESC(6;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
                 printf("                                                                      ");
                 printf(CONSOLE_ESC(6;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
+                printf(CONSOLE_ESC(0m));
             }
         }
         if (kDown & HidNpadButton_R) {
@@ -504,9 +505,26 @@ int push() {
                 selectedInPage = 1;
                 drawTitles();
                 drawSelected();
-                printf(CONSOLE_ESC(6;6H));
+                printf(CONSOLE_ESC(6;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
                 printf("                                                                      ");
                 printf(CONSOLE_ESC(6;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
+                printf(CONSOLE_ESC(0m));
+            }
+        }
+        if (kDown & HidNpadButton_ZL) {
+            if (selectedUser != 0) {
+                selectedUser -= 1;
+                clearSelectedUser();
+                printf(CONSOLE_ESC(45;2H) CONSOLE_ESC(38;5;255m));
+                printf("Selected user: %s", userNames[selectedUser]);
+            }
+        }
+        if (kDown & HidNpadButton_ZR) {
+            if (selectedUser != total_users - 1) {
+                selectedUser += 1;
+                clearSelectedUser();
+                printf(CONSOLE_ESC(45;2H) CONSOLE_ESC(38;5;255m));
+                printf("Selected user: %s", userNames[selectedUser]);
             }
         }
         if (kDown & HidNpadButton_A) {

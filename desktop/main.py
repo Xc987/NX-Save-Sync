@@ -37,11 +37,32 @@ def checkConfig():
     configDir.mkdir(exist_ok=True)
     configFile = configDir / 'config.json'
     if not configFile.exists():
+        print("\n\033[31m[FAIL] Config file doesnt exist!\033[0m")
+        input("Press enter to exit")
+        sys.exit(0)
+    return configFile
+
+def changeHost():
+    appdataPath = os.getenv('LOCALAPPDATA')
+    if not appdataPath:
+        appdataPath = Path.home() / 'AppData' / 'Local'
+    configDir = Path(appdataPath) / 'NX-Save-Sync'
+    configDir.mkdir(exist_ok=True)
+    configFile = configDir / 'config.json'
+    if not configFile.exists():
         with open(configFile, 'w') as f:
             print("\n\033[35m[LOAD]\033[0m Please input the Switch ip")
             hostIp = input("\033[35m[LOAD]\033[0m > ")
             json.dump({"host": hostIp}, f, indent=4) 
-    return configFile
+    else:
+        config = {}
+        with open(configFile, 'r') as f:
+            config = json.load(f)
+        print("\n\033[35m[LOAD]\033[0m Please input the Switch IP")
+        hostIp = input("\033[35m[LOAD]\033[0m > ")
+        config["host"] = hostIp
+        with open(configFile, 'w') as f:
+            json.dump(config, f, indent=4)
 
 def downloadZip(host, port, file_name):
     try:
@@ -162,32 +183,51 @@ if __name__ == "__main__":
     os.system("")
     print("Welcome to NX save sync. Select an option.")
     lines = ["Pull current save file from switch to pc", 
-             "Push newer save file from pc to switch"]
+             "Push newer save file from pc to switch",
+             "Set / Change Switch IP"]
     selected = 1
     print(f"\033[44m{lines[0]}\033[0m")
     print(f"{lines[1]}")
+    print(f"{lines[2]}")
     while True:
         key = get_key()
         if key == 'up':
-            if (selected != 1):
-                clear_lines(2)
+            if (selected == 2):
+                clear_lines(3)
                 selected = 1
                 print(f"\033[44m{lines[0]}\033[0m")
                 print(f"{lines[1]}")
-        elif key == 'down':
-            if (selected != 2):
-                clear_lines(2)
+                print(f"{lines[2]}")
+            elif (selected == 3):
+                clear_lines(3)
                 selected = 2
                 print(f"{lines[0]}")
                 print(f"\033[44m{lines[1]}\033[0m")
+                print(f"{lines[2]}")
+        elif key == 'down':
+            if (selected == 1):
+                clear_lines(3)
+                selected = 2
+                print(f"{lines[0]}")
+                print(f"\033[44m{lines[1]}\033[0m")
+                print(f"{lines[2]}")
+            elif (selected == 2):
+                clear_lines(3)
+                selected = 3
+                print(f"{lines[0]}")
+                print(f"{lines[1]}")
+                print(f"\033[44m{lines[2]}\033[0m")
         elif key == 'enter':
             break
-    configFile = checkConfig()
     if getattr(sys, 'frozen', False):
         scriptDir = os.path.dirname(sys.executable)
     elif __file__:
         scriptDir = os.path.dirname(__file__)
+    if (selected == 3):
+        changeHost()
+        sys.exit(0)
     if (selected == 1):
+        configFile = checkConfig()
         with open(configFile, 'r') as file:
             data = json.load(file)
             host = data.get("host")
@@ -200,7 +240,7 @@ if __name__ == "__main__":
             print("\033[31m[FAIL] Couldnt find temp.zip!\033[0m")
             input("Press enter to exit")
             sys.exit(0)
-        with zipfile.ZipFile(os.path.join(scriptDir, "temp.zip"), 'r') as zipRef:
+        with zipfile.ZipFile("temp.zip", 'r') as zipRef:
             zipRef.extractall(scriptDir)
         clear_lines(1)
         print("\033[32m[ OK ]\033[0m Unzipping temp.zip")
@@ -266,6 +306,7 @@ if __name__ == "__main__":
         print("\033[32m[ OK ]\033[0m Deleteing temp folder")
         shutil.rmtree(tempDir)
     elif (selected == 2):
+        configFile = checkConfig()
         print("\nSelect a title")
         with open(configFile, 'r') as file:
             config = json.load(file)
