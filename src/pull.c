@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include "main.h"
 #include "miniz.h"
 
@@ -193,37 +195,77 @@ static int getValue(const char *json, const char *key, char *value, size_t value
     value[len] = '\0';
     return 1;
 }
-void downloadZip() {
+static int downloadZip() {
+    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    PadState pad;
+    padInitializeDefault(&pad);
     socketInitializeDefault();
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        printf("Socket creation failed\n");
-        return;
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to create socket.\n" CONSOLE_ESC(0m));
+        return 0;
     }
+    int flags = fcntl(sock, F_GETFL, 0);
+    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
-    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        printf("Connection failed\n");
+    int connect_result = connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if (connect_result < 0 && errno != EINPROGRESS) {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Connection failed immediately.\n" CONSOLE_ESC(0m));
         close(sock);
         socketExit();
-        return;
+        return 0;
     }
+    fd_set fdset;
+    struct timeval tv;
+    FD_ZERO(&fdset);
+    FD_SET(sock, &fdset);
+    tv.tv_sec = 1; 
+    tv.tv_usec = 0;
+    bool cancelled = false;
+    while (select(sock + 1, NULL, &fdset, NULL, &tv) <= 0) {
+        padUpdate(&pad);
+        u64 kDown = padGetButtonsDown(&pad);
+        if (kDown & HidNpadButton_Plus) {
+            cancelled = true;
+            break;
+        }
+        FD_ZERO(&fdset);
+        FD_SET(sock, &fdset);
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+    }
+    if (cancelled) {
+        close(sock);
+        socketExit();
+        return 2;
+    }
+    int error = 0;
+    socklen_t len = sizeof(error);
+    if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error != 0) {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Connection failed.\n" CONSOLE_ESC(0m));
+        close(sock);
+        socketExit();
+        return 0;
+    }
+    fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
     const char *request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
     if (send(sock, request, strlen(request), 0) < 0) {
-        printf("Send failed\n");
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Send failed.\n" CONSOLE_ESC(0m));
         close(sock);
         socketExit();
-        return;
+        return 0;
     }
     char buffer[4096];
     FILE *file = fopen("sdmc:/temp.zip", "wb");
     if (!file) {
-        printf("Failed to create file\n");
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to create file.\n" CONSOLE_ESC(0m));
+        printf("\n");
         close(sock);
         socketExit();
-        return;
+        return 0;
     }
     int header_ended = 0;
     ssize_t bytes_received;
@@ -247,17 +289,20 @@ void downloadZip() {
     printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
     printf("File temp.zip downloaded successfully.\n");
     consoleUpdate(NULL);
-    int shutdown_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (connect(shutdown_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
-        send(shutdown_sock, "SHUTDOWN", 8, 0);
-        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-        printf("Shutting down server.\n");
-        consoleUpdate(NULL);
-        char response[128];
-        recv(shutdown_sock, response, sizeof(response), 0);
+    if (!cancelled) {
+        int shutdown_sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (connect(shutdown_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
+            send(shutdown_sock, "SHUTDOWN", 8, 0);
+            printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
+            printf("Shutting down server.\n");
+            consoleUpdate(NULL);
+            char response[128];
+            recv(shutdown_sock, response, sizeof(response), 0);
+        }
+        close(shutdown_sock);
     }
-    close(shutdown_sock);
     socketExit();
+    return 1;
 }
 int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
@@ -286,7 +331,12 @@ int pull() {
     } else {
         fclose(file);
     }
-    downloadZip();
+    int result = downloadZip();
+    if (result == 0) {
+        return 0;
+    } else if (result == 2) {
+        return 2;
+    }
     printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
     printf("Unzipping temp.zip\n");
     consoleUpdate(NULL);

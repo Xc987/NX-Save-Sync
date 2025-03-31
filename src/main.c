@@ -50,20 +50,6 @@ static void createConfig() {
         fclose(file);
     }
 }
-void printTime() {
-    printf(CONSOLE_ESC(1;61H));
-    time_t now = time(NULL);
-    struct tm *timeinfo = localtime(&now);
-    printf(CONSOLE_ESC(38;5;255m));
-    printf("%02d.%02d.%04d %02d:%02d:%02d",
-               timeinfo->tm_mday,
-               timeinfo->tm_mon + 1,
-               timeinfo->tm_year + 1900,
-               timeinfo->tm_hour,
-               timeinfo->tm_min,
-               timeinfo->tm_sec);
-    printf(CONSOLE_ESC(0m));
-}
 static void getUsers() {
     Result rc = accountInitialize(AccountServiceType_System);
     if (R_FAILED(rc)) {
@@ -132,7 +118,6 @@ int main(int argc, char **argv) {
             break;
     }
     printf(CONSOLE_ESC(0m));
-    printTime();
     while(appletMainLoop()){
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
@@ -179,7 +164,6 @@ int main(int argc, char **argv) {
                 createConfig();
             }
         }
-        printTime();
         consoleUpdate(NULL);
     }
     printf("\n");
@@ -189,7 +173,7 @@ int main(int argc, char **argv) {
         printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
     } else if (returnValue == 2) {
         printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "Process was aborted.\n" CONSOLE_ESC(0m));
-        svcSleepThread(800000000);
+        svcSleepThread(500000000);
     }
     if (returnValue == 0 || returnValue == 1 || returnValue == 2) {
         printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Press PLUS key to exit.\n" );
@@ -199,7 +183,6 @@ int main(int argc, char **argv) {
             if (kDown & HidNpadButton_Plus) {
                 break;
             }
-            printTime();
             consoleUpdate(NULL);
         }
     }
