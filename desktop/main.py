@@ -71,6 +71,8 @@ def changeHost():
 
 def downloadZip(host, port, file_name):
     try:
+        dpg.show_item("progress_bar")
+        dpg.show_item("progress_info")
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 256 * 1024)
@@ -80,24 +82,47 @@ def downloadZip(host, port, file_name):
         header = b""
         file_handle = open(file_name, "wb")
         header_complete = False
+        total_received = 0
+        content_length = 0
+        last_update = 0
+        while not header_complete:
+            data = client_socket.recv(64 * 1024)
+            if not data:
+                break
+            header += data
+            if b"\r\n\r\n" in header:
+                header_end = header.find(b"\r\n\r\n")
+                headers = header[:header_end].decode('utf-8', errors='ignore')
+                for line in headers.split('\r\n'):
+                    if line.lower().startswith('content-length:'):
+                        content_length = int(line.split(':')[1].strip())
+                        break
+                file_handle.write(header[header_end + 4:])
+                total_received = len(header[header_end + 4:])
+                header_complete = True
+        if not content_length:
+            printToWidget("Could not determine file size from headers\n")
+            return
         while True:
             data = client_socket.recv(64 * 1024)
             if not data:
                 break
-            if not header_complete:
-                header += data
-                if b"\r\n\r\n" in header:
-                    header_end = header.find(b"\r\n\r\n")
-                    file_handle.write(header[header_end + 4:])
-                    header_complete = True
-            else:
-                file_handle.write(data)
-
+            file_handle.write(data)
+            total_received += len(data)
+            if time.time() - last_update > 0.1:
+                progress = total_received / content_length
+                dpg.set_value("progress_bar", progress)
+                downloaded_mb = total_received / (1024 * 1024)
+                total_mb = content_length / (1024 * 1024)
+                dpg.configure_item("progress_info", default_value=f"{downloaded_mb:.1f}MB / {total_mb:.1f}MB")
+                last_update = time.time()
         file_handle.close()
         if b"200 OK" not in header:
             printToWidget("Server error or file not found!\n")
             return
         printToWidget(f"File {file_name} downloaded successfully.\n")
+        dpg.hide_item("progress_bar")
+        dpg.hide_item("progress_info")
         shutdown_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         shutdown_socket.connect((host, port))
         shutdown_socket.sendall(b"SHUTDOWN")
@@ -230,8 +255,12 @@ def window():
                 dpg.add_text("Pull current save file from switch to pc")
                 with dpg.group(horizontal=True):
                     dpg.add_button(label="Connect to switch", width=150, height=30, callback=pull)
+                    dpg.add_progress_bar(label="Temp", default_value=0, width=200, tag="progress_bar")
+                    dpg.add_text("", tag="progress_info")
                     dpg.add_input_text(label="Emulator save file path", width=150, tag="input_widget")
                     dpg.hide_item("input_widget")
+                    dpg.hide_item("progress_bar")
+                    dpg.hide_item("progress_info")
                 output_widget = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
                 dpg.hide_item(output_widget)
             with dpg.tab(label="Push"):
@@ -239,12 +268,6 @@ def window():
                 dpg.add_button(label="Start server", width=150, height=30)
             with dpg.tab(label="Config"):
                 dpg.add_text("This is the content of Tab 3", indent=20)
-                dpg.add_radio_button(
-                    label="Options", 
-                    items=["Option A", "Option B", "Option C"],
-                    horizontal=True
-                )
-                dpg.add_progress_bar(label="Progress", default_value=0.5, width=200)
     
     dpg.create_viewport(title='NX-Save-Sync', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
     dpg.setup_dearpygui()
