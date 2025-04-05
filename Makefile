@@ -20,7 +20,7 @@ INCLUDES	:=	include
 #ROMFS	:=	romfs
 APP_TITLE   := NX save sync
 APP_AUTHOR  := Xc98
-APP_VERSION := 1.0.0
+APP_VERSION := 1.2.0
 
 #---------------------------------------------------------------------------------
 # options for code generation

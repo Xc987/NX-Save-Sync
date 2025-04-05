@@ -192,64 +192,25 @@ static int getValue(const char *json, const char *key, char *value, size_t value
     return 1;
 }
 static int downloadZip(char *host) {
-    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
-    PadState pad;
-    padInitializeDefault(&pad);
     socketInitializeDefault();
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to create socket.\n" CONSOLE_ESC(0m));
+        printf("Socket creation failed\n");
         return 0;
     }
-    int flags = fcntl(sock, F_GETFL, 0);
-    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
     inet_pton(AF_INET, host, &server_addr.sin_addr);
-    int connect_result = connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
-    if (connect_result < 0 && errno != EINPROGRESS) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Connection failed immediately.\n" CONSOLE_ESC(0m));
+    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        printf("Connection failed\n");
         close(sock);
         socketExit();
         return 0;
     }
-    fd_set fdset;
-    struct timeval tv;
-    FD_ZERO(&fdset);
-    FD_SET(sock, &fdset);
-    tv.tv_sec = 1; 
-    tv.tv_usec = 0;
-    bool cancelled = false;
-    while (select(sock + 1, NULL, &fdset, NULL, &tv) <= 0) {
-        padUpdate(&pad);
-        u64 kDown = padGetButtonsDown(&pad);
-        if (kDown & HidNpadButton_Plus) {
-            cancelled = true;
-            break;
-        }
-        FD_ZERO(&fdset);
-        FD_SET(sock, &fdset);
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
-    }
-    if (cancelled) {
-        close(sock);
-        socketExit();
-        return 2;
-    }
-    int error = 0;
-    socklen_t len = sizeof(error);
-    if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error != 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Connection failed.\n" CONSOLE_ESC(0m));
-        close(sock);
-        socketExit();
-        return 0;
-    }
-    fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
     const char *request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
     if (send(sock, request, strlen(request), 0) < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Send failed.\n" CONSOLE_ESC(0m));
+        printf("Send failed\n");
         close(sock);
         socketExit();
         return 0;
@@ -257,8 +218,7 @@ static int downloadZip(char *host) {
     char buffer[4096];
     FILE *file = fopen("sdmc:/temp.zip", "wb");
     if (!file) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to create file.\n" CONSOLE_ESC(0m));
-        printf("\n");
+        printf("Failed to create file\n");
         close(sock);
         socketExit();
         return 0;
@@ -285,18 +245,16 @@ static int downloadZip(char *host) {
     printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
     printf("File temp.zip downloaded successfully.\n");
     consoleUpdate(NULL);
-    if (!cancelled) {
-        int shutdown_sock = socket(AF_INET, SOCK_STREAM, 0);
-        if (connect(shutdown_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
-            send(shutdown_sock, "SHUTDOWN", 8, 0);
-            printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-            printf("Shutting down server.\n");
-            consoleUpdate(NULL);
-            char response[128];
-            recv(shutdown_sock, response, sizeof(response), 0);
-        }
-        close(shutdown_sock);
+    int shutdown_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (connect(shutdown_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
+        send(shutdown_sock, "SHUTDOWN", 8, 0);
+        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
+        printf("Shutting down server.\n");
+        consoleUpdate(NULL);
+        char response[128];
+        recv(shutdown_sock, response, sizeof(response), 0);
     }
+    close(shutdown_sock);
     socketExit();
     return 1;
 }
@@ -323,11 +281,8 @@ int pull() {
             printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
             printf("Connecting to host: %s\n", host);
             consoleUpdate(NULL);
-            int result = downloadZip(host);
-            if (result == 0) {
+            if (downloadZip(host) == 0) {
                 return 0;
-            } else if (result == 2) {
-                return 2;
             }
         }
     } else {

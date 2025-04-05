@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -24,26 +25,38 @@ int selectedInPage = 1;
 char *pushingTitle = 0;
 char *pushingTID = 0;
 
-
+static int send_all(int socket, const void *buffer, size_t length) {
+    size_t sent = 0;
+    while (sent < length) {
+        int result = send(socket, (char*)buffer + sent, length - sent, 0);
+        if (result <= 0) return result;
+        sent += result;
+    }
+    return sent;
+}
 static void handleHttp(int client_socket) {
+    int buf_size = 512 * 1024;
+    setsockopt(client_socket, SOL_SOCKET, SO_SNDBUF, &buf_size, sizeof(buf_size));
+    struct timeval timeout = {30, 0};
+    setsockopt(client_socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
     char buffer[1024];
     int bytes_received = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_received < 0) {
-        printf("Error receiving data.\n");
+    if (bytes_received <= 0) {
+        close(client_socket);
         return;
     }
     buffer[bytes_received] = '\0';
     if (strstr(buffer, "SHUTDOWN") != NULL) {
         shutdown_requested = true;
         const char *response = "HTTP/1.1 200 OK\r\n\r\nServer is shutting down.";
-        send(client_socket, response, strlen(response), 0);
+        send_all(client_socket, response, strlen(response));
         close(client_socket);
         return;
     }
     FILE *file = fopen("/temp.zip", "rb");
     if (!file) {
-        const char *not_found_response = "HTTP/1.1 404 Not Found\r\n\r\nFile not found.";
-        send(client_socket, not_found_response, strlen(not_found_response), 0);
+        const char *response = "HTTP/1.1 404 Not Found\r\n\r\n";
+        send_all(client_socket, response, strlen(response));
         close(client_socket);
         return;
     }
@@ -51,31 +64,41 @@ static void handleHttp(int client_socket) {
     long file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
     const char *file_name = strrchr("/temp.zip", '/');
-    if (file_name == NULL) {
-        file_name = "/temp.zip"; 
-    } else {
-        file_name++;
-    }
+    file_name = file_name ? file_name + 1 : "/temp.zip";
     char header[512];
     snprintf(header, sizeof(header),
              "HTTP/1.1 200 OK\r\n"
              "Content-Type: application/zip\r\n"
              "Content-Disposition: attachment; filename=\"%s\"\r\n"
              "Content-Length: %ld\r\n"
-             "Connection: close\r\n\r\n", file_name, file_size);
-    send(client_socket, header, strlen(header), 0);
-    char file_buffer[1024];
-    size_t bytes_read;
-    while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), file)) > 0) {
-        send(client_socket, file_buffer, bytes_read, 0);
+             "Connection: keep-alive\r\n\r\n",
+             file_name, file_size);
+    if (send_all(client_socket, header, strlen(header)) < 0) {
+        fclose(file);
+        close(client_socket);
+        return;
+    }
+    #define BUF_SIZE (64 * 1024)
+    char file_buf[BUF_SIZE];
+    size_t total_sent = 0;
+    while (total_sent < file_size) {
+        size_t to_read = (file_size - total_sent) < BUF_SIZE ? 
+                         (file_size - total_sent) : BUF_SIZE;
+                         
+        size_t bytes_read = fread(file_buf, 1, to_read, file);
+        if (bytes_read == 0) break;
+
+        int bytes_sent = send_all(client_socket, file_buf, bytes_read);
+        if (bytes_sent <= 0) {
+            break;
+        }
+        total_sent += bytes_sent;
     }
     fclose(file);
+    usleep(100000);
     close(client_socket);
 }
 static int startSend() {
-    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
-    PadState pad;
-    padInitializeDefault(&pad);
     socketInitializeDefault();
     u32 local_ip = gethostid();
     u32 correct_ip = __builtin_bswap32(local_ip);
@@ -85,73 +108,49 @@ static int startSend() {
              (correct_ip >> 16) & 0xFF,
              (correct_ip >> 8) & 0xFF,
              correct_ip & 0xFF);
-    printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m) "Switch IP: " CONSOLE_ESC(38;5;226m));
+    printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m));
+    printf("Switch IP: " CONSOLE_ESC(38;5;226m));
     printf("%s\n", ip_str);
-    printf(CONSOLE_ESC(38;5;255m));
     consoleUpdate(NULL);
+    printf(CONSOLE_ESC(38;5;255m));
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to create socket.\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
+        printf("Failed to create socket.\n");
         return 0;
     }
-    int flags = fcntl(server_socket, F_GETFL, 0);
-    fcntl(server_socket, F_SETFL, flags | O_NONBLOCK);
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(8080);
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to bind socket.\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
+        printf("Failed to bind socket.\n");
         close(server_socket);
         return 0;
     }
     if (listen(server_socket, 5) < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to listen on socket.\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
+        printf("Failed to listen on socket.\n");
         close(server_socket);
         return 0;
     }
-    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Server is now running\n");
+    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
+    printf("Server is now running\n");
     consoleUpdate(NULL);
-    int waiting_counter = 0;
-    struct timespec sleep_time = {0, 100000000};
     while (!shutdown_requested) {
-        padUpdate(&pad);
-        u64 kDown = padGetButtonsDown(&pad);
-        if (kDown & HidNpadButton_Plus) {
-            printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Shutting down server\n");
-            consoleUpdate(NULL);
-            close(server_socket);
-            socketExit();
-            return 2;
-        }
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
-        if (client_socket >= 0) {
-            handleHttp(client_socket);
-            close(client_socket);
-            waiting_counter = 0;
-        } else if (errno == EWOULDBLOCK || errno == EAGAIN) {
-            waiting_counter++;
-            if (waiting_counter % 10 == 0) {
-                if (kDown & HidNpadButton_Plus) {
-                    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Shutting down server\n");
-                    consoleUpdate(NULL);
-                    close(server_socket);
-                    socketExit();
-                    return 2;
-                }
-                padUpdate(&pad);
-            }
-            nanosleep(&sleep_time, NULL);
-        } else {
-            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Accept error: %d\n" CONSOLE_ESC(0m), errno);
-            consoleUpdate(NULL);
-            nanosleep(&sleep_time, NULL);
+        if (client_socket < 0) {
+            printf("Failed to accept connection.\n");
+            continue;
         }
+        handleHttp(client_socket);
     }
-    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Shutting down server\n");
+    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
+    printf("Shutting down server\n");
     consoleUpdate(NULL);
     close(server_socket);
     socketExit();
@@ -593,21 +592,8 @@ int push() {
     if (status == NifmInternetConnectionStatus_Connected) {
         nifmExit();
         socketExit();
-        int result = startSend();
-        if (result == 0) {
+        if (startSend() == 0) {
             return 0;
-        } else if (result == 2) {
-            printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp.zip file\n");
-            consoleUpdate(NULL);
-            remove("sdmc:/temp.zip");
-            printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp.zip file\n");
-            consoleUpdate(NULL);
-            printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp/ folder\n");
-            consoleUpdate(NULL);
-            removeDir("sdmc:/temp/");
-            printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp/ folder\n");
-            consoleUpdate(NULL);
-            return 2;
         }
     } else {
         printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Console is not connected to the internet!\n" CONSOLE_ESC(0m));

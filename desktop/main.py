@@ -1,13 +1,19 @@
+import dearpygui.dearpygui as dpg
+from pathlib import Path
 import socket
 import json
 import zipfile
 import os
 import sys
 import shutil
-from pathlib import Path
 import msvcrt
-import socket
 import threading
+import keyboard
+import time
+
+input_text = None
+output_widget = None
+pressed_enter = False
 
 def get_key():
     while True:
@@ -38,8 +44,7 @@ def checkConfig():
     configFile = configDir / 'config.json'
     if not configFile.exists():
         print("\n\033[31m[FAIL] Config file doesnt exist!\033[0m")
-        input("Press enter to exit")
-        sys.exit(0)
+        
     return configFile
 
 def changeHost():
@@ -67,42 +72,41 @@ def changeHost():
 def downloadZip(host, port, file_name):
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 256 * 1024)
         client_socket.connect((host, port))
         request = f"GET / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
         client_socket.sendall(request.encode())
-        response = b""
+        header = b""
+        file_handle = open(file_name, "wb")
+        header_complete = False
         while True:
-            data = client_socket.recv(1024)
+            data = client_socket.recv(64 * 1024)
             if not data:
                 break
-            response += data
-        if b"200 OK" not in response:
-            print("\033[31m[FAIL] File not found or server error!\033[0m")
-            input("Press enter to exit")
-            sys.exit(0)
-        header_end = response.find(b"\r\n\r\n")
-        if header_end == -1:
-            print("\033[31m[FAIL] Invalid HTTP response!\033[0m")
-            input("Press enter to exit")
-            sys.exit(0)
-        file_content = response[header_end + 4:]
-        with open(file_name, "wb") as file:
-            file.write(file_content)
-        print(f"\033[32m[ OK ]\033[0m File {file_name} downloaded successfully.")
-        client_socket.close()
+            if not header_complete:
+                header += data
+                if b"\r\n\r\n" in header:
+                    header_end = header.find(b"\r\n\r\n")
+                    file_handle.write(header[header_end + 4:])
+                    header_complete = True
+            else:
+                file_handle.write(data)
+
+        file_handle.close()
+        if b"200 OK" not in header:
+            printToWidget("Server error or file not found!\n")
+            return
+        printToWidget(f"File {file_name} downloaded successfully.\n")
         shutdown_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         shutdown_socket.connect((host, port))
         shutdown_socket.sendall(b"SHUTDOWN")
-        print("\033[32m[ OK ]\033[0m Shuting down server.")
+        shutdown_socket.close()
+        printToWidget("Shutting down server.\n")
     except Exception as e:
-        print(f"\033[31m[FAIL] {e}\033[0m")
-        input("Press enter to exit")
-        sys.exit(0)
+        printToWidget(f"Error: {e}\n")
     finally:
-        if 'client_socket' in locals():
-            client_socket.close()
-        if 'shutdown_socket' in locals():
-            shutdown_socket.close()
+        client_socket.close()
 
 class uploadZip:
     def __init__(self):
@@ -179,132 +183,171 @@ class uploadZip:
             self.server_socket.close()
             print("\033[32m[ OK ]\033[0m Shutting down server")
 
-if __name__ == "__main__":
-    os.system("")
-    print("Welcome to NX save sync. Select an option.")
-    lines = ["Pull current save file from switch to pc", 
-             "Push newer save file from pc to switch",
-             "Set / Change Switch IP"]
-    selected = 1
-    print(f"\033[44m{lines[0]}\033[0m")
-    print(f"{lines[1]}")
-    print(f"{lines[2]}")
-    while True:
-        key = get_key()
-        if key == 'up':
-            if (selected == 2):
-                clear_lines(3)
-                selected = 1
-                print(f"\033[44m{lines[0]}\033[0m")
-                print(f"{lines[1]}")
-                print(f"{lines[2]}")
-            elif (selected == 3):
-                clear_lines(3)
-                selected = 2
-                print(f"{lines[0]}")
-                print(f"\033[44m{lines[1]}\033[0m")
-                print(f"{lines[2]}")
-        elif key == 'down':
-            if (selected == 1):
-                clear_lines(3)
-                selected = 2
-                print(f"{lines[0]}")
-                print(f"\033[44m{lines[1]}\033[0m")
-                print(f"{lines[2]}")
-            elif (selected == 2):
-                clear_lines(3)
-                selected = 3
-                print(f"{lines[0]}")
-                print(f"{lines[1]}")
-                print(f"\033[44m{lines[2]}\033[0m")
-        elif key == 'enter':
-            break
+def on_enter_press(event):
+    global pressed_enter
+    if event.name == 'enter':
+        pressed_enter = True
+
+def inputString():
+    global input_value, input_entered, pressed_enter
+    input_entered = True
+    dpg.show_item("input_widget")
+    while input_entered:
+        keyboard.on_press(on_enter_press)
+        input_value = dpg.get_value("input_widget")
+        if input_value != "" and pressed_enter:
+            input_entered = True
+            dpg.hide_item("input_widget")
+            input_entered = False
+        time.sleep(0.1) 
+    keyboard.unhook_all()
+    return input_value
+
+def window():
+    global output_widget
+    dpg.create_context()
+    with dpg.font_registry():
+        try:
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+        font_path = os.path.join(base_path, os.path.join("res", "font.ttf"))
+        default_font = dpg.add_font(font_path, 16)
+    with dpg.theme() as dark_theme:
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (25, 25, 25))
+            dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (20, 20, 20))
+            dpg.add_theme_color(dpg.mvThemeCol_Text, (230, 230, 230))
+            dpg.add_theme_color(dpg.mvThemeCol_Button, (60, 60, 60))
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (80, 80, 80))
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (40, 40, 40))
+            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5)
+    with dpg.window(tag="Primary Window", label="Main Window", no_resize=True, no_collapse=True, no_close=True, no_move=True, width=800, height=600):
+        dpg.bind_font(default_font)
+        dpg.bind_theme(dark_theme)
+        with dpg.tab_bar():
+            with dpg.tab(label="Pull"):
+                dpg.add_text("Pull current save file from switch to pc")
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="Connect to switch", width=150, height=30, callback=pull)
+                    dpg.add_input_text(label="Emulator save file path", width=150, tag="input_widget")
+                    dpg.hide_item("input_widget")
+                output_widget = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
+                dpg.hide_item(output_widget)
+            with dpg.tab(label="Push"):
+                dpg.add_text("Push newer save file from pc to switch")
+                dpg.add_button(label="Start server", width=150, height=30)
+            with dpg.tab(label="Config"):
+                dpg.add_text("This is the content of Tab 3", indent=20)
+                dpg.add_radio_button(
+                    label="Options", 
+                    items=["Option A", "Option B", "Option C"],
+                    horizontal=True
+                )
+                dpg.add_progress_bar(label="Progress", default_value=0.5, width=200)
+    
+    dpg.create_viewport(title='NX-Save-Sync', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
+    dpg.setup_dearpygui()
+    dpg.show_viewport()
+    dpg.start_dearpygui()
+    dpg.destroy_context()
+
+def printToWidget(message):
+    global output_widget
+    if output_widget is not None:
+        dpg.set_value(output_widget, dpg.get_value(output_widget) + message)
+
+def pull():
+    global output_widget
+    dpg.set_value(output_widget, "")
+    dpg.show_item(output_widget)
     if getattr(sys, 'frozen', False):
         scriptDir = os.path.dirname(sys.executable)
     elif __file__:
         scriptDir = os.path.dirname(__file__)
+    configFile = checkConfig()
+    with open(configFile, 'r') as file:
+        data = json.load(file)
+        host = data.get("host")
+        if host:
+            printToWidget(f"Connecting to host: {host}\n")
+    downloadZip(host, 8080, "temp.zip")
+    if os.path.exists(os.path.join(scriptDir, "temp.zip")):
+        printToWidget("Unzipping temp.zip\n")
+    else:
+        printToWidget("Couldnt find temp.zip!\n")
+    zip_path = os.path.join(scriptDir, "temp.zip")
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(scriptDir)
+    tempDir = os.path.join(scriptDir, "temp")
+    if os.path.exists(tempDir) and os.path.isdir(tempDir):
+        subFolder = [f.name for f in os.scandir(tempDir) if f.is_dir()]
+        if len(subFolder) == 1:
+            with open(configFile, 'r') as file:
+                data = json.load(file)
+                titleDir = os.path.join(tempDir, subFolder[0])
+                titleFile = os.path.join(titleDir, "Title_Name/")
+                entries = os.listdir(titleFile)
+                files = [entry for entry in entries if os.path.isfile(os.path.join(titleFile, entry))]
+                if len(files) == 1:
+                    titleName = files[0]
+                    shutil.rmtree(titleFile)
+                if not subFolder[0] in data:
+                    printToWidget(f"Please enter the emulator save directory for {titleName}\n")
+                    emuPath = inputString()
+                    with open(configFile, 'r') as file:
+                        data = json.load(file)
+                        data[subFolder[0]] = [emuPath, titleName]
+                    with open(configFile, 'w') as file:
+                        json.dump(data, file, indent=4)
+        else:
+            printToWidget("Couldnt find any TID subfolders in /temp/!\n")
+            
+    else:
+        printToWidget("Couldnt find temp folder!\n")
+        
+    with open(configFile, 'r') as file:
+        data = json.load(file)
+        titleArray = data[subFolder[0]]
+        dstDir = titleArray[0]
+    srcDir = os.path.join(tempDir, subFolder[0])
+    if os.path.exists(dstDir):
+        printToWidget(f"Deleting any existing save file in {dstDir}\n")
+    else:
+        printToWidget(f"The directory {dstDir} does not exist!\n")
+        
+    for item in os.listdir(dstDir):
+        itemPath = os.path.join(dstDir, item)
+        try:
+            if os.path.isfile(itemPath) or os.path.islink(itemPath):
+                os.unlink(itemPath)
+            elif os.path.isdir(itemPath):
+                shutil.rmtree(itemPath)
+        except Exception as e:
+            printToWidget(f"Failed to delete {itemPath}!\n")
+    printToWidget("Moving save file.\n")
+    for item in os.listdir(srcDir):
+        srcItem = os.path.join(srcDir, item)
+        dstItem = os.path.join(dstDir, item)
+        if os.path.isfile(srcItem):
+            shutil.copy2(srcItem, dstItem)
+        elif os.path.isdir(srcItem):
+            shutil.copytree(srcItem, dstItem)
+    printToWidget("Deleteing temp.zip file.\n")
+    os.remove(os.path.join(scriptDir, "temp.zip"))
+    printToWidget("Deleteing temp folder.\n")
+    shutil.rmtree(tempDir)
+
+if __name__ == "__main__":
+    window()
+    if getattr(sys, 'frozen', False):
+        scriptDir = os.path.dirname(sys.executable)
+    elif __file__:
+        scriptDir = os.path.dirname(__file__)
+    selected = 1
     if (selected == 3):
         changeHost()
         sys.exit(0)
-    if (selected == 1):
-        configFile = checkConfig()
-        with open(configFile, 'r') as file:
-            data = json.load(file)
-            host = data.get("host")
-            if host:
-                print(f"\n\033[32m[ OK ]\033[0m Connecting to host: {host}")
-        downloadZip(host, 8080, "temp.zip")
-        if os.path.exists(os.path.join(scriptDir, "temp.zip")):
-            print("\033[33m[WAIT]\033[0m Unzipping temp.zip")
-        else:
-            print("\033[31m[FAIL] Couldnt find temp.zip!\033[0m")
-            input("Press enter to exit")
-            sys.exit(0)
-        with zipfile.ZipFile("temp.zip", 'r') as zipRef:
-            zipRef.extractall(scriptDir)
-        clear_lines(1)
-        print("\033[32m[ OK ]\033[0m Unzipping temp.zip")
-        tempDir = os.path.join(scriptDir, "temp")
-        if os.path.exists(tempDir) and os.path.isdir(tempDir):
-            subFolder = [f.name for f in os.scandir(tempDir) if f.is_dir()]
-            if len(subFolder) == 1:
-                with open(configFile, 'r') as file:
-                    data = json.load(file)
-                    titleDir = os.path.join(tempDir, subFolder[0])
-                    titleFile = os.path.join(titleDir, "Title_Name/")
-                    entries = os.listdir(titleFile)
-                    files = [entry for entry in entries if os.path.isfile(os.path.join(titleFile, entry))]
-                    if len(files) == 1:
-                        titleName = files[0]
-                        shutil.rmtree(titleFile)
-                    if not subFolder[0] in data:
-                        print("\033[35m[LOAD]\033[0m Please enter the emulator save directory for", titleName)
-                        emuPath = (input("\033[35m[LOAD]\033[0m > "))
-                        with open(configFile, 'r') as file:
-                            data = json.load(file)
-                            data[subFolder[0]] = [emuPath, titleName]
-                        with open(configFile, 'w') as file:
-                            json.dump(data, file, indent=4)
-            else:
-                print("\033[31m[FAIL] Couldnt find any TID subfolders in /temp/!\033[0m")
-                input("Press enter to exit")
-                sys.exit(0)
-        else:
-            print("\033[31m[FAIL] Couldnt find temp folder!\033[0m")
-            input("Press enter to exit")
-            sys.exit(0)
-        with open(configFile, 'r') as file:
-            data = json.load(file)
-            titleArray = data[subFolder[0]]
-            dstDir = titleArray[0]
-        srcDir = os.path.join(tempDir, subFolder[0])
-        if os.path.exists(dstDir):
-            print(f"\033[32m[ OK ]\033[0m Deleting any existing save file in {dstDir}")
-        else:
-            print(f"\033[31m[FAIL] The directory {dstDir} does not exist!\033[0m")
-            input("Press enter to exit")
-            sys.exit(0)
-        for item in os.listdir(dstDir):
-                itemPath = os.path.join(dstDir, item)
-                try:
-                    if os.path.isfile(itemPath) or os.path.islink(itemPath):
-                        os.unlink(itemPath)
-                    elif os.path.isdir(itemPath):
-                        shutil.rmtree(itemPath)
-                except Exception as e:
-                    print(f"\033[31m[FAIL] Failed to delete {itemPath}!\033[0m")
-        print("\033[32m[ OK ]\033[0m Moving save file")
-        for item in os.listdir(srcDir):
-            srcItem = os.path.join(srcDir, item)
-            dstItem = os.path.join(dstDir, item)
-            if os.path.isfile(srcItem):
-                shutil.copy2(srcItem, dstItem)
-            elif os.path.isdir(srcItem):
-                shutil.copytree(srcItem, dstItem)
-        print("\033[32m[ OK ]\033[0m Deleteing temp.zip file")
-        os.remove(os.path.join(scriptDir, "temp.zip"))
-        print("\033[32m[ OK ]\033[0m Deleteing temp folder")
-        shutil.rmtree(tempDir)
     elif (selected == 2):
         configFile = checkConfig()
         print("\nSelect a title")
@@ -320,8 +363,7 @@ if __name__ == "__main__":
                 titles.append(value[1])
         if not titles:
             print("\033[31m[FAIL] No valid entries found in config.json!\033[0m")
-            input("Press enter to exit")
-            sys.exit(0)
+            
         selected = 0
         visible_lines = min(10, len(titles))
         while True:
@@ -354,8 +396,7 @@ if __name__ == "__main__":
             shutil.copytree(paths[selected], subFolder, dirs_exist_ok=True)
         else:
             print("\033[31m[FAIL] Couldnt find the save data folder!\033[0m")
-            input("Press enter to exit")
-            sys.exit(0)
+            
         clear_lines(1)
         print("\033[32m[ OK ]\033[0m Exporting save data")
         print("\033[33m[WAIT]\033[0m Zipping /temp/ folder")
@@ -376,4 +417,3 @@ if __name__ == "__main__":
         os.remove(os.path.join(scriptDir, "temp.zip"))
         print("\033[32m[ OK ]\033[0m Deleteing temp folder")
         shutil.rmtree(tempDir)
-    input("Press enter to exit")

@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
     int returnValue = 0;
     getUsers();
     drawBorder();
-    printf(CONSOLE_ESC(1;2H) CONSOLE_ESC(38;5;255m) "NX-Save-Sync v1.1.0\n\n");
+    printf(CONSOLE_ESC(1;2H) CONSOLE_ESC(38;5;255m) "NX-Save-Sync v1.2.0\n\n");
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Select an option.\n");
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(48;5;20m) "Push current save file from switch to pc                                      \n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch\n" CONSOLE_ESC(0m));

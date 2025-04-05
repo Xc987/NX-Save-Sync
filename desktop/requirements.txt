@@ -1,0 +1,3 @@
+dearpygui==2.0.0
+keyboard==0.13.5
+pyinstaller==6.12.0
