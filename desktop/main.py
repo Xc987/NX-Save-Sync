@@ -6,34 +6,24 @@ import zipfile
 import os
 import sys
 import shutil
-import msvcrt
 import threading
 import keyboard
 import time
 
+if getattr(sys, 'frozen', False):
+    scriptDir = os.path.dirname(sys.executable)
+elif __file__:
+    scriptDir = os.path.dirname(__file__)
+
+tempDir = os.path.join(scriptDir, "temp")
 input_text = None
 output_widget = None
 pressed_enter = False
-
-def get_key():
-    while True:
-        if msvcrt.kbhit():
-            ch = msvcrt.getch()
-            if ch == b'\xe0':
-                ch = msvcrt.getch()
-                if ch == b'H':
-                    return 'up'
-                elif ch == b'P':
-                    return 'down'
-            elif ch == b'\r':
-                return 'enter'
-            else:
-                return ch.decode('ascii')
-
-def clear_lines(n=1):
-    for _ in range(n):
-        sys.stdout.write('\033[F')
-        sys.stdout.write('\033[K')
+titles = []
+keys = []
+paths = []
+selected = 0
+server_thread = None
 
 def checkConfig():
     appdataPath = os.getenv('LOCALAPPDATA')
@@ -71,8 +61,6 @@ def changeHost():
 
 def downloadZip(host, port, file_name):
     try:
-        dpg.show_item("progress_bar")
-        dpg.show_item("progress_info")
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 256 * 1024)
@@ -103,6 +91,8 @@ def downloadZip(host, port, file_name):
         if not content_length:
             printToWidget("Could not determine file size from headers\n")
             return
+        dpg.show_item("progress_bar")
+        dpg.show_item("progress_info")
         while True:
             data = client_socket.recv(64 * 1024)
             if not data:
@@ -207,13 +197,20 @@ class uploadZip:
         finally:
             self.server_socket.close()
             print("\033[32m[ OK ]\033[0m Shutting down server")
-
+            printToWidget2("Deleteing temp.zip file\n")
+            os.remove(os.path.join(scriptDir, "temp.zip"))
+            printToWidget2("Deleteing temp folder\n")
+            shutil.rmtree(tempDir)
+               
 def on_enter_press(event):
     global pressed_enter
     if event.name == 'enter':
         pressed_enter = True
 
 def inputString():
+    with dpg.window(tag="input", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
+        dpg.add_text("Input emulator save file path")
+        dpg.add_input_text(width=250, tag="input_widget")
     global input_value, input_entered, pressed_enter
     input_entered = True
     dpg.show_item("input_widget")
@@ -223,13 +220,14 @@ def inputString():
         if input_value != "" and pressed_enter:
             input_entered = True
             dpg.hide_item("input_widget")
+            dpg.hide_item("input")
             input_entered = False
         time.sleep(0.1) 
     keyboard.unhook_all()
     return input_value
 
 def window():
-    global output_widget
+    global output_widget, output_widget2
     dpg.create_context()
     with dpg.font_registry():
         try:
@@ -257,15 +255,15 @@ def window():
                     dpg.add_button(label="Connect to switch", width=150, height=30, callback=pull)
                     dpg.add_progress_bar(label="Temp", default_value=0, width=200, tag="progress_bar")
                     dpg.add_text("", tag="progress_info")
-                    dpg.add_input_text(label="Emulator save file path", width=150, tag="input_widget")
-                    dpg.hide_item("input_widget")
                     dpg.hide_item("progress_bar")
                     dpg.hide_item("progress_info")
                 output_widget = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
                 dpg.hide_item(output_widget)
             with dpg.tab(label="Push"):
                 dpg.add_text("Push newer save file from pc to switch")
-                dpg.add_button(label="Start server", width=150, height=30)
+                dpg.add_button(label="Start server", width=150, height=30, callback=selectTitle)
+                output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
+                dpg.hide_item(output_widget2)
             with dpg.tab(label="Config"):
                 dpg.add_text("This is the content of Tab 3", indent=20)
     
@@ -273,6 +271,10 @@ def window():
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
+    while dpg.is_dearpygui_running():
+        dpg.render_dearpygui_frame()
+    server = uploadZip()
+    server.shutdown_flag.set()
     dpg.destroy_context()
 
 def printToWidget(message):
@@ -280,14 +282,40 @@ def printToWidget(message):
     if output_widget is not None:
         dpg.set_value(output_widget, dpg.get_value(output_widget) + message)
 
+def printToWidget2(message):
+    global output_widget2
+    if output_widget2 is not None:
+        dpg.set_value(output_widget2, dpg.get_value(output_widget2) + message)
+
+def find_first_position(sender, app_data):
+    global selected
+    selected = titles.index(app_data)
+    dpg.hide_item("titles")
+    push()
+
+def selectTitle():
+    configFile = checkConfig()
+    print("\nSelect a title")
+    with open(configFile, 'r') as file:
+        config = json.load(file)
+    for key, value in config.items():
+        if key != "host" and isinstance(value, list) and len(value) >= 2:
+            keys.append(key)
+            paths.append(value[0])
+            titles.append(value[1])
+    if not titles:
+        print("\033[31m[FAIL] No valid entries found in config.json!\033[0m")
+        
+    
+    with dpg.window(tag="titles", label="Title selection Window", pos=(40, 50), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=500, height=275):
+        dpg.add_text("Select a title you want to push save file")
+        with dpg.child_window(border=False):
+            dpg.add_listbox(tag="array_listbox",items=titles,num_items=10,width=-1, callback=find_first_position)
+
 def pull():
     global output_widget
     dpg.set_value(output_widget, "")
     dpg.show_item(output_widget)
-    if getattr(sys, 'frozen', False):
-        scriptDir = os.path.dirname(sys.executable)
-    elif __file__:
-        scriptDir = os.path.dirname(__file__)
     configFile = checkConfig()
     with open(configFile, 'r') as file:
         data = json.load(file)
@@ -361,82 +389,32 @@ def pull():
     printToWidget("Deleteing temp folder.\n")
     shutil.rmtree(tempDir)
 
+def push():
+    dpg.show_item(output_widget2)
+    printToWidget2(f"Selected title: {titles[selected]}\n")
+    printToWidget2(f"Selected TID: {keys[selected]}\n")
+    printToWidget2(f"Title save data path: {paths[selected]}\n")
+    
+    os.mkdir(tempDir)
+    subFolder = os.path.join(tempDir, keys[selected])
+    os.mkdir(subFolder)
+    printToWidget2("Exporting save data\n")
+    if os.path.exists(paths[selected]) and os.path.isdir(paths[selected]):
+        shutil.copytree(paths[selected], subFolder, dirs_exist_ok=True)
+    else:
+        printToWidget2("Couldnt find the save data folder!\n")
+    with zipfile.ZipFile('temp.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk('temp'):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, start='temp')
+                zipf.write(file_path, arcname=os.path.join('temp', arcname))
+    printToWidget2("Zipping /temp/ folder!\n")
+    IPAddr = socket.gethostbyname(socket.gethostname())
+    printToWidget2(f"PC IP: {IPAddr}\n")
+    server = uploadZip()
+    server_thread = threading.Thread(target=server.run)
+    server_thread.start()
+
 if __name__ == "__main__":
     window()
-    if getattr(sys, 'frozen', False):
-        scriptDir = os.path.dirname(sys.executable)
-    elif __file__:
-        scriptDir = os.path.dirname(__file__)
-    selected = 1
-    if (selected == 3):
-        changeHost()
-        sys.exit(0)
-    elif (selected == 2):
-        configFile = checkConfig()
-        print("\nSelect a title")
-        with open(configFile, 'r') as file:
-            config = json.load(file)
-        keys = []
-        paths = []
-        titles = []
-        for key, value in config.items():
-            if key != "host" and isinstance(value, list) and len(value) >= 2:
-                keys.append(key)
-                paths.append(value[0])
-                titles.append(value[1])
-        if not titles:
-            print("\033[31m[FAIL] No valid entries found in config.json!\033[0m")
-            
-        selected = 0
-        visible_lines = min(10, len(titles))
-        while True:
-            start_idx = max(0, selected - visible_lines // 2)
-            end_idx = min(len(titles), start_idx + visible_lines)
-            start_idx = max(0, end_idx - visible_lines)
-            for i in range(start_idx, end_idx):
-                prefix = "\033[44m" if i == selected else ""
-                print(f"{prefix}{titles[i]}\033[0m")
-            key = get_key()
-            if key == 'up':
-                selected = max(0, selected - 1)
-            elif key == 'down':
-                selected = min(len(titles) - 1, selected + 1)
-            elif key == 'enter':
-                break
-            if (len(titles) > 10):
-                clear_lines(10)
-            else:
-                clear_lines(len(titles)) 
-        print(f"\n\033[96m[INFO]\033[0m Selected title: {titles[selected]}")
-        print(f"\033[96m[INFO]\033[0m Selected TID: {keys[selected]}")
-        print(f"\033[96m[INFO]\033[0m Title save data path: {paths[selected]}")
-        tempDir = os.path.join(scriptDir, "temp")
-        os.mkdir(tempDir)
-        subFolder = os.path.join(tempDir, keys[selected])
-        os.mkdir(subFolder)
-        print("\033[33m[WAIT]\033[0m Exporting save data")
-        if os.path.exists(paths[selected]) and os.path.isdir(paths[selected]):
-            shutil.copytree(paths[selected], subFolder, dirs_exist_ok=True)
-        else:
-            print("\033[31m[FAIL] Couldnt find the save data folder!\033[0m")
-            
-        clear_lines(1)
-        print("\033[32m[ OK ]\033[0m Exporting save data")
-        print("\033[33m[WAIT]\033[0m Zipping /temp/ folder")
-        
-        with zipfile.ZipFile('temp.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk('temp'):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, start='temp')
-                    zipf.write(file_path, arcname=os.path.join('temp', arcname))
-        clear_lines(1)
-        print("\033[32m[ OK ]\033[0m Zipping /temp/ folder")
-        IPAddr = socket.gethostbyname(socket.gethostname())
-        print(f"\033[96m[INFO]\033[0m PC IP: {IPAddr}")
-        server = uploadZip()
-        server.run()
-        print("\033[32m[ OK ]\033[0m Deleteing temp.zip file")
-        os.remove(os.path.join(scriptDir, "temp.zip"))
-        print("\033[32m[ OK ]\033[0m Deleteing temp folder")
-        shutil.rmtree(tempDir)
