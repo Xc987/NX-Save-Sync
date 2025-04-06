@@ -48,18 +48,16 @@ def changeHost():
     configFile = configDir / 'config.json'
     if not configFile.exists():
         with open(configFile, 'w') as f:
-            with dpg.window(tag="input", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
+            with dpg.window(tag="input2", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
                 dpg.add_text("Input switch IP")
-                dpg.add_input_text(width=250, tag="input_widget")
+                dpg.add_input_text(width=250, tag="input_widget2")
                 input_entered = True
-                dpg.show_item("input_widget")
                 while input_entered:
                     keyboard.on_press(checkInput)
-                    input_value = dpg.get_value("input_widget")
+                    input_value = dpg.get_value("input_widget2")
                     if input_value != "" and pressed_enter:
-                        input_entered = True
-                        dpg.hide_item("input_widget")
-                        dpg.hide_item("input")
+                        dpg.delete_item("input_widget2")
+                        dpg.delete_item("input2")
                         input_entered = False
                     time.sleep(0.1) 
                 keyboard.unhook_all()
@@ -70,18 +68,16 @@ def changeHost():
         config = {}
         with open(configFile, 'r') as f:
             config = json.load(f)
-        with dpg.window(tag="input", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
+        with dpg.window(tag="input2", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
             dpg.add_text("Input switch IP")
-            dpg.add_input_text(width=250, tag="input_widget")
+            dpg.add_input_text(width=250, tag="input_widget2")
             input_entered = True
-            dpg.show_item("input_widget")
             while input_entered:
                 keyboard.on_press(checkInput)
-                input_value = dpg.get_value("input_widget")
+                input_value = dpg.get_value("input_widget2")
                 if input_value != "" and pressed_enter:
-                    input_entered = True
-                    dpg.hide_item("input_widget")
-                    dpg.hide_item("input")
+                    dpg.delete_item("input_widget2")
+                    dpg.delete_item("input2")
                     input_entered = False
                 time.sleep(0.1) 
             keyboard.unhook_all()
@@ -246,14 +242,12 @@ def inputString():
         dpg.add_input_text(width=250, tag="input_widget")
     global pressed_enter
     input_entered = True
-    dpg.show_item("input_widget")
     while input_entered:
         keyboard.on_press(checkInput)
         input_value = dpg.get_value("input_widget")
         if input_value != "" and pressed_enter:
-            input_entered = True
-            dpg.hide_item("input_widget")
-            dpg.hide_item("input")
+            dpg.delete_item("input_widget")
+            dpg.delete_item("input")
             input_entered = False
         time.sleep(0.1) 
     keyboard.unhook_all()
@@ -264,12 +258,7 @@ def createWindow():
     global output_widget, output_widget2
     dpg.create_context()
     with dpg.font_registry():
-        try:
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = os.path.abspath(".")
-        font_path = os.path.join(base_path, os.path.join("res", "font.ttf"))
-        default_font = dpg.add_font(font_path, 16)
+        default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16)
     with dpg.theme() as dark_theme:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (25, 25, 25))
@@ -324,7 +313,7 @@ def createWindow():
 def printToWidget(message):
     global output_widget
     if output_widget is not None:
-        dpg.set_value(output_widget, dpg.get_value(output_widget) + message, color=[255, 0, 0])
+        dpg.set_value(output_widget, dpg.get_value(output_widget) + message)
 
 def printToWidget2(message):
     global output_widget2
