@@ -230,7 +230,7 @@ class uploadZip:
             os.remove(os.path.join(scriptDir, "temp.zip"))
             printToWidget2("Deleteing temp folder\n")
             shutil.rmtree(tempDir)
-               
+            
 def checkInput(event):
     global pressed_enter
     if event.name == 'enter':
@@ -275,7 +275,7 @@ def createWindow():
             with dpg.tab(label="Pull"):
                 dpg.add_text("Pull current save file from switch to pc")
                 with dpg.group(horizontal=True):
-                    dpg.add_button(label="Connect to switch", width=150, height=30, callback=startPull)
+                    dpg.add_button(label="Connect to switch", width=150, height=30, callback=startPull, tag="connect_button")
                     dpg.add_progress_bar(label="Temp", default_value=0, width=200, tag="progress_bar")
                     dpg.add_text("", tag="progress_info")
                     dpg.hide_item("progress_bar")
@@ -284,7 +284,7 @@ def createWindow():
                 dpg.hide_item(output_widget)
             with dpg.tab(label="Push"):
                 dpg.add_text("Push newer save file from pc to switch")
-                dpg.add_button(label="Start server", width=150, height=30, callback=startPush)
+                dpg.add_button(label="Start server", width=150, height=30, callback=startPush, tag="start_button")
                 output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
                 dpg.hide_item(output_widget2)
             with dpg.tab(label="Config"):
@@ -321,7 +321,7 @@ def printToWidget2(message):
         dpg.set_value(output_widget2, dpg.get_value(output_widget2) + message)
 
 def getSelectedTitle(sender, app_data):
-    global selectedTitle
+    global selectedTitle, titles, keys, paths
     selectedTitle = titles.index(app_data)
     dpg.delete_item("titles")
     result = push()
@@ -329,6 +329,9 @@ def getSelectedTitle(sender, app_data):
         printToWidget2("Process ended with an error!\n")
     elif (result == 1):
         printToWidget2("Process ended successfully!\n")
+    titles = []
+    keys = []
+    paths = []
 
 def selectTitle():
     configFile = checkConfig()
