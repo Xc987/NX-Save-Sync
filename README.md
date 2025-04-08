@@ -8,10 +8,21 @@ Check out the project [wiki](https://github.com/Xc987/NX-Save-Sync/wiki)
 
 ## Build
 
-DevkitA64 is required to build, check [switchbrew](https://switchbrew.org/wiki/Setting_up_Development_Environment)
-
 ```
 git clone https://github.com/Xc987/NX-Save-Sync
 cd NX-Save-Sync
+```
+
+build switch app
+
+```
 make
+```
+
+build pc app
+
+```
+cd desktop
+pip install -r requirements.txt
+pyinstaller -w --icon="icon.ico" --name="NX-Save-Sync" 'main.py'
 ```

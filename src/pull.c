@@ -113,10 +113,11 @@ static void moveSave(const char *src, const char *dest) {
                     }
                     fclose(src_file);
                     fclose(dest_file);
+                    fsdevCommitDevice("save");
                 } else {
-                    printf("Failed to copy: %s\n", src_path);
                     if (src_file) fclose(src_file);
                     if (dest_file) fclose(dest_file);
+                    fsdevCommitDevice("save");
                 }
             }
         }
@@ -215,7 +216,7 @@ static int downloadZip(char *host) {
         socketExit();
         return 0;
     }
-    char buffer[4096];
+    char buffer[65536];
     FILE *file = fopen("sdmc:/temp.zip", "wb");
     if (!file) {
         printf("Failed to create file\n");
@@ -223,28 +224,62 @@ static int downloadZip(char *host) {
         socketExit();
         return 0;
     }
+
     int header_ended = 0;
     ssize_t bytes_received;
+    size_t total_bytes_received = 0;
+    size_t content_length = 0; // Total file size
+    
     while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
         if (!header_ended) {
             char *header_end = strstr(buffer, "\r\n\r\n");
             if (header_end) {
                 header_ended = 1;
                 size_t data_start = header_end - buffer + 4;
+                
+                // Try to get Content-Length from headers
+                char *content_length_ptr = strstr(buffer, "Content-Length: ");
+                if (content_length_ptr) {
+                    content_length = strtoul(content_length_ptr + 16, NULL, 10);
+                }
+                
                 if (bytes_received > data_start) {
-                    fwrite(buffer + data_start, 1, bytes_received - data_start, file);
+                    size_t data_bytes = bytes_received - data_start;
+                    fwrite(buffer + data_start, 1, data_bytes, file);
+                    total_bytes_received += data_bytes;
+                    
+                    // Print progress if we know the total size
+                    if (content_length > 0) {
+                        printf("\rDownloading: %zu / %zu bytes (%.1f%%)", 
+                               total_bytes_received, content_length,
+                               (double)total_bytes_received / content_length * 100);
+                        consoleUpdate(NULL);
+                    }
                 }
                 continue;
             }
         } else {
             fwrite(buffer, 1, bytes_received, file);
+            total_bytes_received += bytes_received;
+            
+            // Print progress if we know the total size
+            if (content_length > 0) {
+                printf("\rDownloading: %zu / %zu bytes (%.1f%%)", 
+                       total_bytes_received, content_length,
+                       (double)total_bytes_received / content_length * 100);
+                consoleUpdate(NULL);
+            }
         }
     }
+    
+    // Clear the progress line and print final message
+    printf("\r                                                  \r");
     fclose(file);
     close(sock);
     printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-    printf("File temp.zip downloaded successfully.\n");
+    printf("File temp.zip downloaded successfully (%zu bytes).\n", total_bytes_received);
     consoleUpdate(NULL);
+    
     int shutdown_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (connect(shutdown_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
         send(shutdown_sock, "SHUTDOWN", 8, 0);
@@ -355,7 +390,7 @@ int pull() {
     printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
     printf("Deleting sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
-    removeDir("sdmc:/temp/");
+    //removeDir("sdmc:/temp/");
     printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
     printf("Deleting sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
