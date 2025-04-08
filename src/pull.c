@@ -194,9 +194,10 @@ static int getValue(const char *json, const char *key, char *value, size_t value
 }
 static int downloadZip(char *host) {
     socketInitializeDefault();
+    printf(CONSOLE_ESC(1C) "Downloading temp.zip.\n");
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        printf("Socket creation failed\n");
+        printf(CONSOLE_ESC(1C) "Socket creation failed\n");
         return 0;
     }
     struct sockaddr_in server_addr;
@@ -204,14 +205,14 @@ static int downloadZip(char *host) {
     server_addr.sin_port = htons(8080);
     inet_pton(AF_INET, host, &server_addr.sin_addr);
     if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        printf("Connection failed\n");
+        printf(CONSOLE_ESC(1C) "Connection failed\n");
         close(sock);
         socketExit();
         return 0;
     }
     const char *request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
     if (send(sock, request, strlen(request), 0) < 0) {
-        printf("Send failed\n");
+        printf(CONSOLE_ESC(1C) "Send failed\n");
         close(sock);
         socketExit();
         return 0;
@@ -219,7 +220,7 @@ static int downloadZip(char *host) {
     char buffer[65536];
     FILE *file = fopen("sdmc:/temp.zip", "wb");
     if (!file) {
-        printf("Failed to create file\n");
+        printf(CONSOLE_ESC(1C) "Failed to create file\n");
         close(sock);
         socketExit();
         return 0;
@@ -228,31 +229,25 @@ static int downloadZip(char *host) {
     int header_ended = 0;
     ssize_t bytes_received;
     size_t total_bytes_received = 0;
-    size_t content_length = 0; // Total file size
-    
+    size_t content_length = 0;
     while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
         if (!header_ended) {
             char *header_end = strstr(buffer, "\r\n\r\n");
             if (header_end) {
                 header_ended = 1;
                 size_t data_start = header_end - buffer + 4;
-                
-                // Try to get Content-Length from headers
                 char *content_length_ptr = strstr(buffer, "Content-Length: ");
                 if (content_length_ptr) {
                     content_length = strtoul(content_length_ptr + 16, NULL, 10);
                 }
-                
                 if (bytes_received > data_start) {
                     size_t data_bytes = bytes_received - data_start;
                     fwrite(buffer + data_start, 1, data_bytes, file);
                     total_bytes_received += data_bytes;
-                    
-                    // Print progress if we know the total size
                     if (content_length > 0) {
-                        printf("\rDownloading: %zu / %zu bytes (%.1f%%)", 
-                               total_bytes_received, content_length,
-                               (double)total_bytes_received / content_length * 100);
+                        double current_mb = (double)total_bytes_received / (1024 * 1024);
+                        double total_mb = (double)content_length / (1024 * 1024);
+                        printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip. %.2f / %.2f MB\n", current_mb, total_mb);
                         consoleUpdate(NULL);
                     }
                 }
@@ -262,29 +257,22 @@ static int downloadZip(char *host) {
             fwrite(buffer, 1, bytes_received, file);
             total_bytes_received += bytes_received;
             
-            // Print progress if we know the total size
             if (content_length > 0) {
-                printf("\rDownloading: %zu / %zu bytes (%.1f%%)", 
-                       total_bytes_received, content_length,
-                       (double)total_bytes_received / content_length * 100);
+                double current_mb = (double)total_bytes_received / (1024 * 1024);
+                double total_mb = (double)content_length / (1024 * 1024);
+                printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip. %.2f / %.2f MB\n", current_mb, total_mb);
                 consoleUpdate(NULL);
             }
         }
     }
-    
-    // Clear the progress line and print final message
-    printf("\r                                                  \r");
     fclose(file);
     close(sock);
-    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-    printf("File temp.zip downloaded successfully (%zu bytes).\n", total_bytes_received);
+    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip.                                            \n");
     consoleUpdate(NULL);
-    
     int shutdown_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (connect(shutdown_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0) {
         send(shutdown_sock, "SHUTDOWN", 8, 0);
-        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-        printf("Shutting down server.\n");
+        printf(CONSOLE_ESC(1C) "Shutting down server.\n");
         consoleUpdate(NULL);
         char response[128];
         recv(shutdown_sock, response, sizeof(response), 0);
@@ -297,11 +285,10 @@ int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
-    printf(CONSOLE_ESC(8;1H));
+    printf(CONSOLE_ESC(8;1H) CONSOLE_ESC(38;5;255m));
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (!file) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-        printf("PC IP not set!\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(1C) "PC IP not set!\n");
         return 0;
     }
     Result rc = 0;
@@ -313,8 +300,7 @@ int pull() {
         fclose(file);
         char host[64];
         if (getValue(buffer, "host", host, sizeof(host))) {
-            printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-            printf("Connecting to host: %s\n", host);
+            printf(CONSOLE_ESC(1C) "Connecting to host: %s\n", host);
             consoleUpdate(NULL);
             if (downloadZip(host) == 0) {
                 return 0;
@@ -323,19 +309,16 @@ int pull() {
     } else {
         fclose(file);
     }
-    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
-    printf("Unzipping temp.zip\n");
+    printf(CONSOLE_ESC(1C) "Unzipping temp.zip\n");
     consoleUpdate(NULL);
     FILE *test = fopen("sdmc:/temp.zip", "rb");
     if(!test) {
-        printf("\nError: %s not found!\n", "temp.zip");
+        printf(CONSOLE_ESC(1C) "temp.zip not found!\n");
+        return 0;
     } else {
         fclose(test);
         unzip("sdmc:/temp.zip", "sdmc:/");
     }
-    printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-    printf("Unzipping temp.zip\n");
-    consoleUpdate(NULL);
     DIR *dir;
     struct dirent *ent;
     char *folderName = NULL;
@@ -346,7 +329,6 @@ int pull() {
             continue;
         char fullPath[PATH_MAX];
         snprintf(fullPath, sizeof(fullPath), "%s%s", "sdmc:/temp/", ent->d_name);
-        
         DIR *testDir = opendir(fullPath);
         if (testDir != NULL) {
             closedir(testDir);
@@ -358,41 +340,35 @@ int pull() {
     hexToUpper(folderName);
     uint64_t application_id = hexToU64(folderName);
     if (R_SUCCEEDED(rc)) {
+        printf(CONSOLE_ESC(1C) "Mounting save:/\n");
+        consoleUpdate(NULL);
         rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
         if (R_FAILED(rc)) {
-            printf("Failed to mount save: 0x%x\n", rc);
+            printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
+            return 0;
         }
     }
     if (R_SUCCEEDED(rc)) {
-        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-        printf("Deleting any existing save file in save:/\n");
+        printf(CONSOLE_ESC(1C) "Deleting any existing save file in save:/\n");
+        consoleUpdate(NULL);
         cleanDir("save:/");
         char backup_path[64];
         snprintf(backup_path, sizeof(backup_path), "sdmc:/temp/%016lx", application_id);
-
-        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-        printf("Moving save file\n");
+        printf(CONSOLE_ESC(1C) "Moving save file\n");
+        consoleUpdate(NULL);
         moveSave(backup_path, "save:/");
-
         rc = fsdevCommitDevice("save");
         if (R_FAILED(rc)) {
             printf("Failed to commit changes: 0x%x\n", rc);
+            return 0;
         }
         fsdevUnmountDevice("save");
     }
-    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
-    printf("Deleting sdmc:/temp.zip file\n");
+    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
     consoleUpdate(NULL);
     remove("sdmc:/temp.zip");
-    printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-    printf("Deleting sdmc:/temp.zip file\n");
+    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
-    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m));
-    printf("Deleting sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
-    //removeDir("sdmc:/temp/");
-    printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-    printf("Deleting sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
+    removeDir("sdmc:/temp/");
     return 1;
 }

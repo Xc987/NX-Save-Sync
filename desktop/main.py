@@ -1,5 +1,6 @@
 import dearpygui.dearpygui as dpg
 from pathlib import Path
+import urllib.request
 import socket
 import json
 import zipfile
@@ -91,6 +92,7 @@ def changeHost():
 
 def downloadZip(host, port, file_name):
     try:
+        printToWidget("Downloading temp.zip.\n")
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 256 * 1024)
@@ -140,7 +142,6 @@ def downloadZip(host, port, file_name):
         if b"200 OK" not in header:
             printToWidget("Server error or file not found!\n")
             return 0
-        printToWidget(f"File {file_name} downloaded successfully.\n")
         dpg.hide_item("progress_bar")
         dpg.hide_item("progress_info")
         shutdown_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -209,6 +210,18 @@ class uploadZip:
             except:
                 pass
     def run(self):
+        global titles, keys, paths
+        try:
+            urllib.request.urlopen('https://www.google.com', timeout=5)
+        except:
+            printToWidget2("Device is not connected to the internet!\n")
+            printToWidget2("Process ended with an error!\n")
+            titles = []
+            keys = []
+            paths = []
+            return
+        IPAddr = socket.gethostbyname(socket.gethostname())
+        printToWidget2(f"PC IP: {IPAddr}\n")
         self.server_socket.bind(('0.0.0.0', 8080))
         self.server_socket.listen(5)
         self.server_socket.settimeout(1)
@@ -230,6 +243,7 @@ class uploadZip:
             os.remove(os.path.join(scriptDir, "temp.zip"))
             printToWidget2("Deleteing temp folder\n")
             shutil.rmtree(tempDir)
+            printToWidget2("Process ended successfully!\n")
             
 def checkInput(event):
     global pressed_enter
@@ -300,7 +314,7 @@ def createWindow():
                     dpg.add_text("Switch IP not set!", tag="current_ip")
                     dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
     
-    dpg.create_viewport(title='NX-Save-Sync', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
+    dpg.create_viewport(title='NX-Save-Sync', small_icon='icon.ico', large_icon='icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
@@ -327,8 +341,6 @@ def getSelectedTitle(sender, app_data):
     result = push()
     if (result == 0):
         printToWidget2("Process ended with an error!\n")
-    elif (result == 1):
-        printToWidget2("Process ended successfully!\n")
     titles = []
     keys = []
     paths = []
@@ -362,9 +374,7 @@ def startPush():
     result = selectTitle()
     if (result == 0):
         printToWidget2("Process ended with an error!\n")
-    elif (result == 1):
-        printToWidget2("Process ended successfully!\n")
-
+        
 def startPull():
     global selected
     selected = 1
@@ -480,8 +490,6 @@ def push():
                 arcname = os.path.relpath(file_path, start='temp')
                 zipf.write(file_path, arcname=os.path.join('temp', arcname))
     printToWidget2("Zipping /temp/ folder!\n")
-    IPAddr = socket.gethostbyname(socket.gethostname())
-    printToWidget2(f"PC IP: {IPAddr}\n")
     server = uploadZip()
     server_thread = threading.Thread(target=server.run)
     server_thread.start()

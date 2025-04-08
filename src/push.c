@@ -108,15 +108,13 @@ static int startSend() {
              (correct_ip >> 16) & 0xFF,
              (correct_ip >> 8) & 0xFF,
              correct_ip & 0xFF);
-    printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m));
-    printf("Switch IP: " CONSOLE_ESC(38;5;226m));
+    printf(CONSOLE_ESC(1C) "Switch IP: " CONSOLE_ESC(38;5;226m));
     printf("%s\n", ip_str);
     consoleUpdate(NULL);
     printf(CONSOLE_ESC(38;5;255m));
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-        printf("Failed to create socket.\n");
+        printf(CONSOLE_ESC(1C) "Failed to create socket.\n");
         return 0;
     }
     struct sockaddr_in server_addr;
@@ -125,32 +123,28 @@ static int startSend() {
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(8080);
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-        printf("Failed to bind socket.\n");
+        printf(CONSOLE_ESC(1C) "Failed to bind socket.\n");
         close(server_socket);
         return 0;
     }
     if (listen(server_socket, 5) < 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] ");
-        printf("Failed to listen on socket.\n");
+        printf(CONSOLE_ESC(1C) "Failed to listen on socket.\n");
         close(server_socket);
         return 0;
     }
-    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-    printf("Server is now running\n");
+    printf(CONSOLE_ESC(1C) "Server is now running\n");
     consoleUpdate(NULL);
     while (!shutdown_requested) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
         if (client_socket < 0) {
-            printf("Failed to accept connection.\n");
+            printf(CONSOLE_ESC(1C) "Failed to accept connection.\n");
             continue;
         }
         handleHttp(client_socket);
     }
-    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m));
-    printf("Shutting down server\n");
+    printf(CONSOLE_ESC(1C) "Shutting down server\n");
     consoleUpdate(NULL);
     close(server_socket);
     socketExit();
@@ -159,7 +153,7 @@ static int startSend() {
 static void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const char *base_path) {
     DIR* dir = opendir(dir_path);
     if (!dir) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to open directory.\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(1C) "Failed to open directory.\n");
         return;
     }
     struct dirent* entry;
@@ -176,7 +170,7 @@ static void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const c
         } else if (entry->d_type == DT_REG) {
             FILE *file = fopen(file_path, "rb");
             if (!file) {
-                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to open file.\n" CONSOLE_ESC(0m));
+                printf(CONSOLE_ESC(1C) "Failed to open file.\n");
                 continue;
             }
             fseek(file, 0, SEEK_END);
@@ -188,7 +182,7 @@ static void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const c
             fclose(file);
             
             if (!mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_BEST_COMPRESSION)) {
-                printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to add file to zip.\n" CONSOLE_ESC(0m));
+                printf(CONSOLE_ESC(1C) "Failed to add file to zip.\n" );
             }
             free(file_data);
         }
@@ -200,12 +194,10 @@ static void zipDir(const char *dir_path, const char *zip_path) {
     memset(&zip_archive, 0, sizeof(zip_archive));
 
     if (!mz_zip_writer_init_file(&zip_archive, zip_path, 0)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to initialize zip archive!\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(1C) "Failed to initialize zip archive!\n");
         return;
     }
-
     zipDirRec(&zip_archive, dir_path, "temp");
-    
     mz_zip_writer_finalize_archive(&zip_archive);
     mz_zip_writer_end(&zip_archive);
 }
@@ -538,27 +530,26 @@ int push() {
     nsExit();
     printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(38;5;240m) "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
-    printf(CONSOLE_ESC(8;1H));
-    printf(CONSOLE_ESC(38;5;45m) CONSOLE_ESC(1C) "[INFO] " CONSOLE_ESC(38;5;255m));
-    printf("Selected title: %s with TID %s\n", pushingTitle, pushingTID);
+    printf(CONSOLE_ESC(8;1H) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(1C) "Selected title: %s\n", pushingTitle);
+    printf(CONSOLE_ESC(1C) "Selected TID: %s\n", pushingTID);
     consoleUpdate(NULL);
     Result rc=0;
     uint64_t application_id = hexToU64(pushingTID);
-    if (R_SUCCEEDED(rc)) {  
+    if (R_SUCCEEDED(rc)) { 
+        printf(CONSOLE_ESC(1C) "Mounting save:/\n");
         rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
         if (R_FAILED(rc)) {
-            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] fsdevMountSaveData() failed!\n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
             return 0;
         }
     }
     char title_id_folder[64];
     if (R_SUCCEEDED(rc)) {
         snprintf(title_id_folder, sizeof(title_id_folder), "sdmc:/temp/%s/", pushingTID);
-        printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m) "Exporting save data\n");
+        printf(CONSOLE_ESC(1C) "Exporting save data\n");
         consoleUpdate(NULL);
         copySave("save:/", title_id_folder);
-        printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Exporting save data\n");
-        consoleUpdate(NULL);
         fsdevUnmountDevice("save");
     }
     char title_name_folder[128];
@@ -568,15 +559,13 @@ int push() {
     snprintf(title_name_file, sizeof(title_name_file), "%s%s", title_name_folder, pushingTitle);
     FILE *file = fopen(title_name_file, "w");
     fclose(file); 
-    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m) "Zipping sdmc:/temp/ folder\n");
+    printf(CONSOLE_ESC(1C)"Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
     zipDir("sdmc:/temp/", "sdmc:/temp.zip");
-    printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Zipping sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
     socketInitializeDefault();
     rc = nifmInitialize(NifmServiceType_User);
     if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to initialize nifm!\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(1C) "Failed to initialize nifm!\n");
         nifmExit();
         socketExit();
         return 0;
@@ -584,7 +573,7 @@ int push() {
     NifmInternetConnectionStatus status;
     rc = nifmGetInternetConnectionStatus(NULL, NULL, &status);
     if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to get connection status!\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(1C) "Failed to get connection status!\n");
         nifmExit();
         socketExit();
         return 0;
@@ -596,19 +585,15 @@ int push() {
             return 0;
         }
     } else {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Console is not connected to the internet!\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(1C) "Console is not connected to the internet!\n");
         socketExit();
         return 0;
     }
-    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp.zip file\n");
+    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
     consoleUpdate(NULL);
     remove("sdmc:/temp.zip");
-    printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp.zip file\n");
-    consoleUpdate(NULL);
-    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "[WAIT] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp/ folder\n");
+    printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
     removeDir("sdmc:/temp/");
-    printf(CONSOLE_ESC(1A) CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "[ OK ] " CONSOLE_ESC(38;5;255m) "Deleting sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
     return 1;
 }
