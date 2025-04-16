@@ -214,23 +214,23 @@ static uint64_t hexToU64(const char *str) {
     return result;
 }
 static void drawTitles() {
-    printf(CONSOLE_ESC(8;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
-    for (int i = ((currentPage-1) * 33); i < ((currentPage) * 33); i++) {
+    printf(CONSOLE_ESC(9;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+    for (int i = ((currentPage-1) * 31); i < ((currentPage) * 31); i++) {
         printf("%-70s\n", titleNames[i]);
         printf(CONSOLE_ESC(5C));
     }
     printf(CONSOLE_ESC(0m));
 }
 static void clearTitles() {
-    printf(CONSOLE_ESC(5;4H));
-    for (int i = 0; i < 37; i++) {
+    printf(CONSOLE_ESC(6;4H));
+    for (int i = 0; i < 35; i++) {
         printf("%-73s\n", "");
         printf(CONSOLE_ESC(4C));
     }
     printf(CONSOLE_ESC(0m));
 }
 static void drawSelected() {
-    printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(8;6H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m));
     for (int i = 0; i < selectedInPage; i++) {
         printf(CONSOLE_ESC(1B));
     }
@@ -238,7 +238,7 @@ static void drawSelected() {
     printf(CONSOLE_ESC(0m));
 }
 static void clearSelected() {
-    printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(8;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     for (int i = 0; i < selectedInPage; i++) {
         printf(CONSOLE_ESC(1B));
     }
@@ -281,7 +281,7 @@ static void getTitleName(u64 titleId, u32 recordCount) {
     snprintf(titleIdStr, sizeof(titleIdStr), "%016lX", titleId); 
     strcpy(titleIDS[arrayNum], titleIdStr);
     arrayNum += 1;
-    printf(CONSOLE_ESC(6;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     totalApps = recordCount;
     printf("Scanning installed titles, %d of %d",arrayNum, recordCount);
     printf(CONSOLE_ESC(0m));
@@ -292,7 +292,7 @@ static void listTitles() {
     NsApplicationRecord *records = malloc(sizeof(NsApplicationRecord) * 256);
     int32_t recordCount = 0;
     Result rc = nsListApplicationRecord(records, 256, 0, &recordCount);
-    printf(CONSOLE_ESC(6;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     printf("Scanning installed titles, %d of %d",arrayNum, recordCount);
     printf(CONSOLE_ESC(0m));
     consoleUpdate(NULL);
@@ -395,10 +395,10 @@ int push() {
     consoleUpdate(NULL);
     nsInitialize();
     listTitles();
-    maxPages += arrayNum / 33;
-    printf(CONSOLE_ESC(6;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+    maxPages += arrayNum / 31;
+    printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     printf("                                                                      ");
-    printf(CONSOLE_ESC(6;28H)"%s%d", "Select a title. Page 1 / ", maxPages);
+    printf(CONSOLE_ESC(7;28H)"%s%d", "Select a title. Page 1 / ", maxPages);
     printf(CONSOLE_ESC(0m));
     drawTitles();
     drawSelected();
@@ -408,8 +408,8 @@ int push() {
         if (kDown & HidNpadButton_Plus) {
             printf(CONSOLE_ESC(0m));
             clearTitles();
-            printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
-            printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(38;5;240m) "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
             return 2;
         }
         if (padGetButtonsDown(&pad) & HidNpadButton_AnyUp) {
@@ -455,7 +455,7 @@ int push() {
             }
             if (held) {
                 while (padGetButtons(&pad) & HidNpadButton_AnyDown) {
-                    if (selectedInPage != 33 && selected != totalApps) {
+                    if (selectedInPage != 31 && selected != totalApps) {
                         clearSelected();
                         selectedInPage += 1;
                         selected += 1;
@@ -466,7 +466,7 @@ int push() {
                     padUpdate(&pad);
                 }
             } else {
-                if (selectedInPage != 33 && selected != totalApps) {
+                if (selectedInPage != 31 && selected != totalApps) {
                     clearSelected();
                     selectedInPage += 1;
                     selected += 1;
@@ -478,13 +478,13 @@ int push() {
             if (currentPage != 1) {
                 clearSelected();
                 currentPage -= 1;
-                selected = (33 * (currentPage-1) + 1);
+                selected = (31 * (currentPage-1) + 1);
                 selectedInPage = 1;
                 drawTitles();
                 drawSelected();
-                printf(CONSOLE_ESC(6;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+                printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
                 printf("                                                                      ");
-                printf(CONSOLE_ESC(6;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
+                printf(CONSOLE_ESC(7;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
                 printf(CONSOLE_ESC(0m));
             }
         }
@@ -492,13 +492,13 @@ int push() {
             if (currentPage != maxPages) {
                 clearSelected();
                 currentPage += 1;
-                selected = (33 * (currentPage-1) + 1);
+                selected = (31 * (currentPage-1) + 1);
                 selectedInPage = 1;
                 drawTitles();
                 drawSelected();
-                printf(CONSOLE_ESC(6;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+                printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
                 printf("                                                                      ");
-                printf(CONSOLE_ESC(6;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
+                printf(CONSOLE_ESC(7;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
                 printf(CONSOLE_ESC(0m));
             }
         }
@@ -528,9 +528,9 @@ int push() {
         consoleUpdate(NULL);
     }
     nsExit();
-    printf(CONSOLE_ESC(5;2H) CONSOLE_ESC(38;5;240m) "Pull newer save file from pc to switch                                        \n" CONSOLE_ESC(0m));
-    printf(CONSOLE_ESC(6;2H) CONSOLE_ESC(38;5;240m) "Set / Change PC IP                                                            \n" CONSOLE_ESC(0m));
-    printf(CONSOLE_ESC(8;1H) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n\n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     printf(CONSOLE_ESC(1C) "Selected title: %s\n", pushingTitle);
     printf(CONSOLE_ESC(1C) "Selected TID: %s\n", pushingTID);
     consoleUpdate(NULL);

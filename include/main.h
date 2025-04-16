@@ -7,5 +7,6 @@ int push();
 int pull();
 
 void drawBorder();
+void drawTabs(int selected);
 void drawAppMenu();
 void clearSelectedUser();

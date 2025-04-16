@@ -225,7 +225,6 @@ static int downloadZip(char *host) {
         socketExit();
         return 0;
     }
-
     int header_ended = 0;
     ssize_t bytes_received;
     size_t total_bytes_received = 0;
@@ -285,7 +284,7 @@ int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
-    printf(CONSOLE_ESC(8;1H) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (!file) {
         printf(CONSOLE_ESC(1C) "PC IP not set!\n");
