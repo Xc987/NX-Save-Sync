@@ -10,6 +10,8 @@ import shutil
 import threading
 import keyboard
 import time
+import ctypes
+ctypes.windll.shcore.SetProcessDpiAwareness(2)
 
 if getattr(sys, 'frozen', False):
     scriptDir = os.path.dirname(sys.executable)
@@ -272,7 +274,7 @@ def createWindow():
     global output_widget, output_widget2
     dpg.create_context()
     with dpg.font_registry():
-        default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16)
+        default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16*2)
     with dpg.theme() as dark_theme:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (25, 25, 25))
@@ -285,6 +287,7 @@ def createWindow():
     with dpg.window(tag="Primary Window", label="Main Window", no_resize=True, no_collapse=True, no_close=True, no_move=True, width=800, height=600):
         dpg.bind_font(default_font)
         dpg.bind_theme(dark_theme)
+        dpg.set_global_font_scale(0.57)
         with dpg.tab_bar():
             with dpg.tab(label="Pull"):
                 dpg.add_text("Pull current save file from switch to pc")
@@ -314,7 +317,7 @@ def createWindow():
                     dpg.add_text("Switch IP not set!", tag="current_ip")
                     dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
     
-    dpg.create_viewport(title='NX-Save-Sync', small_icon='icon.ico', large_icon='icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
+    dpg.create_viewport(title='NX-Save-Sync', small_icon='_internal/icon.ico', large_icon='_internal/icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()

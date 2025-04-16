@@ -24,5 +24,5 @@ build pc app
 ```
 cd desktop
 pip install -r requirements.txt
-pyinstaller -w --icon="icon.ico" --name="NX-Save-Sync" 'main.py'
+pyinstaller -w --icon="icon.ico" --name="NX-Save-Sync" --add-data "icon.ico;." 'main.py'
 ```
