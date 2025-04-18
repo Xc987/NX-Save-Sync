@@ -5,7 +5,6 @@
 #include <time.h>
 #include "main.h"
 
-static int selected = 1;
 char userNames[256][100];
 AccountUid userAccounts[10];
 int selectedUser = 0;
@@ -47,7 +46,7 @@ static int checkConfig(){
     fclose(file);
     return 1;
 }
-static void drawSelected() {
+static void drawSelected(int selected) {
     printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "                                                                           \n" CONSOLE_ESC(0m));
     if (selected == 1) {
         printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
@@ -129,6 +128,7 @@ int main(int argc, char **argv) {
     PadState pad;
     padInitializeDefault(&pad);
     int returnValue = 0;
+    int selected = 1;
     getUsers();
     drawBorder();
     drawTabs(selected);
@@ -164,14 +164,14 @@ int main(int argc, char **argv) {
             if (selected != 1) {
                 selected -= 1;
                 drawTabs(selected);
-                drawSelected();
+                drawSelected(selected);
             }
         }
         if (kDown & HidNpadButton_R) {
             if (selected != 3) {
                 selected += 1;
                 drawTabs(selected);
-                drawSelected();
+                drawSelected(selected);
             }
         }
         if (kDown & HidNpadButton_ZL) {
@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
                 break;
             } else if (selected == 3) {
                 createConfig();
-                drawSelected();
+                drawSelected(selected);
             }
         }
         consoleUpdate(NULL);

@@ -317,7 +317,7 @@ def createWindow():
                     dpg.add_text("Switch IP not set!", tag="current_ip")
                     dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
     
-    dpg.create_viewport(title='NX-Save-Sync', small_icon='_internal/icon.ico', large_icon='_internal/icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
+    dpg.create_viewport(title='NX-Save-Sync', small_icon='include/icon.ico', large_icon='include/icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
@@ -326,6 +326,12 @@ def createWindow():
     server = uploadZip()
     server.shutdown_flag.set()
     dpg.destroy_context()
+
+def cleanUp():
+    printToWidget("Deleteing temp.zip file.\n")
+    os.remove(os.path.join(scriptDir, "temp.zip"))
+    printToWidget("Deleteing temp folder.\n")
+    shutil.rmtree(tempDir)
 
 def printToWidget(message):
     global output_widget
@@ -432,7 +438,7 @@ def pull():
                         json.dump(data, file, indent=4)
         else:
             printToWidget("Couldnt find any TID subfolders in /temp/!\n")
-            return 0
+            cleanUp()
     else:
         printToWidget("Couldnt find temp folder!\n")
         return 0
@@ -445,6 +451,7 @@ def pull():
         printToWidget(f"Deleting any existing save file in {dstDir}\n")
     else:
         printToWidget(f"The directory {dstDir} does not exist!\n")
+        cleanUp()
         return 0
     for item in os.listdir(dstDir):
         itemPath = os.path.join(dstDir, item)
@@ -455,6 +462,7 @@ def pull():
                 shutil.rmtree(itemPath)
         except Exception as e:
             printToWidget(f"Failed to delete {itemPath}!\n")
+            cleanUp()
             return 0
     printToWidget("Moving save file.\n")
     for item in os.listdir(srcDir):

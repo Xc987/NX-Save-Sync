@@ -8,24 +8,23 @@
 #include <netinet/tcp.h>
 #include <ctype.h>
 #include <dirent.h>
-#include <errno.h>
 #include <fcntl.h>
 #include "main.h"
 #include "miniz.h"
 
-volatile bool shutdown_requested = false;
-char titleNames[256][100];
-char titleIDS[256][17];
-int totalApps = 0;
-int arrayNum = 0;
-int currentPage = 1;
-int maxPages = 1;
-int selected = 1;
-int selectedInPage = 1;
-char *pushingTitle = 0;
-char *pushingTID = 0;
+static volatile bool shutdownRequested = false;
+static char titleNames[256][100];
+static char titleIDS[256][17];
+static int totalApps = 0;
+static int arrayNum = 0;
+static int currentPage = 1;
+static int maxPages = 1;
+static int selected = 1;
+static int selectedInPage = 1;
+static char *pushingTitle = 0;
+static char *pushingTID = 0;
 
-static int send_all(int socket, const void *buffer, size_t length) {
+static int sendAll(int socket, const void *buffer, size_t length) {
     size_t sent = 0;
     while (sent < length) {
         int result = send(socket, (char*)buffer + sent, length - sent, 0);
@@ -47,16 +46,16 @@ static void handleHttp(int client_socket) {
     }
     buffer[bytes_received] = '\0';
     if (strstr(buffer, "SHUTDOWN") != NULL) {
-        shutdown_requested = true;
+        shutdownRequested = true;
         const char *response = "HTTP/1.1 200 OK\r\n\r\nServer is shutting down.";
-        send_all(client_socket, response, strlen(response));
+        sendAll(client_socket, response, strlen(response));
         close(client_socket);
         return;
     }
     FILE *file = fopen("/temp.zip", "rb");
     if (!file) {
         const char *response = "HTTP/1.1 404 Not Found\r\n\r\n";
-        send_all(client_socket, response, strlen(response));
+        sendAll(client_socket, response, strlen(response));
         close(client_socket);
         return;
     }
@@ -73,7 +72,7 @@ static void handleHttp(int client_socket) {
              "Content-Length: %ld\r\n"
              "Connection: keep-alive\r\n\r\n",
              file_name, file_size);
-    if (send_all(client_socket, header, strlen(header)) < 0) {
+    if (sendAll(client_socket, header, strlen(header)) < 0) {
         fclose(file);
         close(client_socket);
         return;
@@ -88,7 +87,7 @@ static void handleHttp(int client_socket) {
         size_t bytes_read = fread(file_buf, 1, to_read, file);
         if (bytes_read == 0) break;
 
-        int bytes_sent = send_all(client_socket, file_buf, bytes_read);
+        int bytes_sent = sendAll(client_socket, file_buf, bytes_read);
         if (bytes_sent <= 0) {
             break;
         }
@@ -134,7 +133,7 @@ static int startSend() {
     }
     printf(CONSOLE_ESC(1C) "Server is now running\n");
     consoleUpdate(NULL);
-    while (!shutdown_requested) {
+    while (!shutdownRequested) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
@@ -387,6 +386,15 @@ static void removeDir(const char *path) {
         perror("Error removing directory");
     }
 }
+static void cleanUp() {
+    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
+    consoleUpdate(NULL);
+    remove("sdmc:/temp.zip");
+    printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
+    consoleUpdate(NULL);
+    removeDir("sdmc:/temp/");
+}
+
 int push() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
@@ -568,6 +576,7 @@ int push() {
         printf(CONSOLE_ESC(1C) "Failed to initialize nifm!\n");
         nifmExit();
         socketExit();
+        cleanUp();
         return 0;
     }
     NifmInternetConnectionStatus status;
@@ -576,24 +585,22 @@ int push() {
         printf(CONSOLE_ESC(1C) "Failed to get connection status!\n");
         nifmExit();
         socketExit();
+        cleanUp();
         return 0;
     }
     if (status == NifmInternetConnectionStatus_Connected) {
         nifmExit();
         socketExit();
         if (startSend() == 0) {
+            cleanUp();
             return 0;
         }
     } else {
         printf(CONSOLE_ESC(1C) "Console is not connected to the internet!\n");
         socketExit();
+        cleanUp();
         return 0;
     }
-    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
-    consoleUpdate(NULL);
-    remove("sdmc:/temp.zip");
-    printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
-    removeDir("sdmc:/temp/");
+    cleanUp();
     return 1;
 }

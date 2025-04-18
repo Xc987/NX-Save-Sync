@@ -7,7 +7,6 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <dirent.h>
-#include <errno.h>
 #include <fcntl.h>
 #include "main.h"
 #include "miniz.h"
@@ -87,12 +86,7 @@ static void moveSave(const char *src, const char *dest) {
     struct dirent *ent;
     char src_path[512];
     char dest_path[512];
-    if (mkdir(dest, 0755) == -1) {
-        if (errno != EEXIST) {
-            printf("Failed to create directory: %s\n", dest);
-            return;
-        }
-    }
+    mkdir(dest, 0755);
     if ((dir = opendir(src)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
@@ -194,7 +188,6 @@ static int getValue(const char *json, const char *key, char *value, size_t value
 }
 static int downloadZip(char *host) {
     socketInitializeDefault();
-    printf(CONSOLE_ESC(1C) "Downloading temp.zip.\n");
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         printf(CONSOLE_ESC(1C) "Socket creation failed\n");
@@ -225,6 +218,8 @@ static int downloadZip(char *host) {
         socketExit();
         return 0;
     }
+    printf(CONSOLE_ESC(1C) "Downloading temp.zip.\n");
+    consoleUpdate(NULL);
     int header_ended = 0;
     ssize_t bytes_received;
     size_t total_bytes_received = 0;
@@ -280,6 +275,15 @@ static int downloadZip(char *host) {
     socketExit();
     return 1;
 }
+static void cleanUp() {
+    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
+    consoleUpdate(NULL);
+    remove("sdmc:/temp.zip");
+    printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
+    consoleUpdate(NULL);
+    removeDir("sdmc:/temp/");
+}
+
 int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
@@ -344,6 +348,7 @@ int pull() {
         rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
         if (R_FAILED(rc)) {
             printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
+            cleanUp();
             return 0;
         }
     }
@@ -359,15 +364,11 @@ int pull() {
         rc = fsdevCommitDevice("save");
         if (R_FAILED(rc)) {
             printf("Failed to commit changes: 0x%x\n", rc);
+            cleanUp();
             return 0;
         }
         fsdevUnmountDevice("save");
     }
-    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
-    consoleUpdate(NULL);
-    remove("sdmc:/temp.zip");
-    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
-    removeDir("sdmc:/temp/");
+    cleanUp();
     return 1;
 }

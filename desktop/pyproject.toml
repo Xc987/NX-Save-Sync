@@ -1,0 +1,18 @@
+[build-system]
+requires = ["cx_Freeze"]
+build-backend = "cx_Freeze"
+
+[project]
+name = "NX-Save-Sync"
+version = "2.0.0"
+description = "NX-Save-Sync"
+
+[tool.cxfreeze]
+executables = [
+    {script = "main.py", base = "Win32GUI", icon = "icon.ico", target_name = "NX-Save-Sync"}
+]
+
+[tool.cxfreeze.build_exe]
+include_files = [
+    ['icon.ico', 'include/icon.ico']
+]
