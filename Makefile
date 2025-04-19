@@ -18,9 +18,9 @@ SOURCES		:=	src
 DATA		:=	data
 INCLUDES	:=	include
 #ROMFS	:=	romfs
-APP_TITLE   := NX save sync
+APP_TITLE   := NX Save Sync
 APP_AUTHOR  := Xc98
-APP_VERSION := 1.2.0
+APP_VERSION := 2.0.0
 
 #---------------------------------------------------------------------------------
 # options for code generation
