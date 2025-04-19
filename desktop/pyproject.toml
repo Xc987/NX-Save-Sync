@@ -14,5 +14,5 @@ executables = [
 
 [tool.cxfreeze.build_exe]
 include_files = [
-    ['icon.ico', 'include/icon.ico']
+    ['include/icon.ico', 'include/icon.ico']
 ]

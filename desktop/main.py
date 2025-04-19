@@ -270,23 +270,125 @@ def inputString():
     pressed_enter = False
     return input_value
 
+def toggle_text_callback(sender, app_data):
+    appdataPath = os.getenv('LOCALAPPDATA')
+    if not appdataPath:
+        appdataPath = Path.home() / 'AppData' / 'Local'
+    configDir = Path(appdataPath) / 'NX-Save-Sync'
+    configDir.mkdir(exist_ok=True)
+    configFile = configDir / 'config.json'
+    if dpg.get_value(sender):
+        config = {}
+        with open(configFile, 'r') as f:
+            config = json.load(f)
+        theme = "dark"
+        config["theme"] = theme
+        with open(configFile, 'w') as f:
+            json.dump(config, f, indent=4)
+        setTheme(1)
+    else:
+        config = {}
+        with open(configFile, 'r') as f:
+            config = json.load(f)
+        theme = "light"
+        config["theme"] = theme
+        with open(configFile, 'w') as f:
+            json.dump(config, f, indent=4)
+        setTheme(2)
+
+def setTheme(theme):
+    if (theme == 1):
+        with dpg.theme() as appTheme:
+            with dpg.theme_component(dpg.mvAll):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (25, 25, 25))
+                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (20, 20, 20))
+                dpg.add_theme_color(dpg.mvThemeCol_Text, (230, 230, 230))
+                dpg.add_theme_color(dpg.mvThemeCol_Button, (60, 60, 60))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (80, 80, 80))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (40, 40, 40))
+                dpg.add_theme_color(dpg.mvThemeCol_Tab, (40, 40, 40))
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5)
+    elif (theme == 2):
+        with dpg.theme() as appTheme:
+            with dpg.theme_component(dpg.mvAll):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (240, 240, 240))
+                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (250, 250, 250))
+                dpg.add_theme_color(dpg.mvThemeCol_Text, (30, 30, 30))
+                dpg.add_theme_color(dpg.mvThemeCol_Button, (180, 180, 180))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (200, 200, 200))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (160, 160, 160))
+                dpg.add_theme_color(dpg.mvThemeCol_Tab, (220, 220, 220))
+                dpg.add_theme_color(dpg.mvNodeCol_TitleBar, (255, 255, 255))
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5)
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (95, 166, 216), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (95, 166, 216), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (95, 166, 216), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg, (230, 230, 230), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrab, (180, 180, 180), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabHovered, (150, 150, 150), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabActive, (120, 120, 120), category=dpg.mvThemeCat_Core)
+            with dpg.theme_component(dpg.mvCheckbox):
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (180, 180, 180))
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, (200, 200, 200))
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive, (160, 160, 160))
+            with dpg.theme_component(dpg.mvInputText):
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (180, 180, 180))
+                dpg.add_theme_color(dpg.mvThemeCol_Border, (200, 200, 200))
+                dpg.add_theme_color(dpg.mvThemeCol_BorderShadow, (240, 240, 240))
+            with dpg.theme_component(dpg.mvProgressBar):
+                dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (95, 166, 216))
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (180, 180, 180))
+            with dpg.theme_component(dpg.mvListbox):
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (240, 240, 240, 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_Text, (20, 20, 20, 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_Border, (180, 180, 180, 255), category=dpg.mvThemeCat_Core)
+
+    dpg.bind_theme(appTheme)
+
 def createWindow():
     global output_widget, output_widget2
     dpg.create_context()
     with dpg.font_registry():
         default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16*2)
-    with dpg.theme() as dark_theme:
-        with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (25, 25, 25))
-            dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (20, 20, 20))
-            dpg.add_theme_color(dpg.mvThemeCol_Text, (230, 230, 230))
-            dpg.add_theme_color(dpg.mvThemeCol_Button, (60, 60, 60))
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (80, 80, 80))
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (40, 40, 40))
-            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5)
+    configFile = checkConfig()
+    if configFile != 0:
+        with open(configFile, 'r') as file:
+            data = json.load(file)
+            theme = data.get("theme")
+            if (theme == "dark"):
+                setTheme(1)
+            elif (theme == "light"):
+                setTheme(2)
+            elif (theme == None):
+                appdataPath = os.getenv('LOCALAPPDATA')
+                if not appdataPath:
+                    appdataPath = Path.home() / 'AppData' / 'Local'
+                configDir = Path(appdataPath) / 'NX-Save-Sync'
+                configDir.mkdir(exist_ok=True)
+                configFile = configDir / 'config.json'
+                config = {}
+                with open(configFile, 'r') as f:
+                    config = json.load(f)
+                config["theme"] = "dark"
+                with open(configFile, 'w') as f:
+                    json.dump(config, f, indent=4)
+                setTheme(1)
+    else:
+        appdataPath = os.getenv('LOCALAPPDATA')
+        if not appdataPath:
+            appdataPath = Path.home() / 'AppData' / 'Local'
+        configDir = Path(appdataPath) / 'NX-Save-Sync'
+        configDir.mkdir(exist_ok=True)
+        configFile = configDir / 'config.json'
+        config = {}
+        with open(configFile, 'w') as f:
+            theme = "dark"
+            json.dump({"theme": theme}, f, indent=4) 
+        setTheme(1)
     with dpg.window(tag="Primary Window", label="Main Window", no_resize=True, no_collapse=True, no_close=True, no_move=True, width=800, height=600):
         dpg.bind_font(default_font)
-        dpg.bind_theme(dark_theme)
         dpg.set_global_font_scale(0.57)
         with dpg.tab_bar():
             with dpg.tab(label="Pull"):
@@ -312,11 +414,22 @@ def createWindow():
                         host = data.get("host")
                         if host:
                             dpg.add_text(f"Switch IP: {host}", tag="current_ip")
-                            dpg.add_button(label="Change switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)   
+                            dpg.add_button(label="Change switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
+                        else:
+                            dpg.add_text("Switch IP not set!", tag="current_ip")
+                            dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
                 else:
                     dpg.add_text("Switch IP not set!", tag="current_ip")
                     dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
-    
+                configFile = checkConfig()
+                if configFile != 0:
+                    with open(configFile, 'r') as file:
+                        data = json.load(file)
+                        theme = data.get("theme")
+                        if (theme == "dark"):
+                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=True, callback=toggle_text_callback)
+                        elif (theme == "light"):
+                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=False, callback=toggle_text_callback)  
     dpg.create_viewport(title='NX-Save-Sync', small_icon='include/icon.ico', large_icon='include/icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
     dpg.setup_dearpygui()
     dpg.show_viewport()
@@ -406,6 +519,9 @@ def pull():
         host = data.get("host")
         if host:
             printToWidget(f"Connecting to host: {host}\n")
+        else:
+            printToWidget("Switch IP not set!\n")
+            return 0
     if downloadZip(host, 8080, "temp.zip") == 0:
         return 0
     if os.path.exists(os.path.join(scriptDir, "temp.zip")):
