@@ -270,7 +270,7 @@ def inputString():
     pressed_enter = False
     return input_value
 
-def toggle_text_callback(sender, app_data):
+def changeTheme(sender, app_data):
     appdataPath = os.getenv('LOCALAPPDATA')
     if not appdataPath:
         appdataPath = Path.home() / 'AppData' / 'Local'
@@ -406,6 +406,12 @@ def createWindow():
                 dpg.add_button(label="Start server", width=150, height=30, callback=startPush, tag="start_button")
                 output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
                 dpg.hide_item(output_widget2)
+            with dpg.tab(label="Titles"):
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="List all titles", width=150, height=30, callback=listTitles, tag="list_titles_button")
+                    dpg.add_text("No valid entries found in config.json!", tag="no_titles_warn")
+                    dpg.hide_item("no_titles_warn")
+                dpg.add_button(label="Add new title", width=150, height=30, callback=addTitle, tag="start_butt1on")
             with dpg.tab(label="Config"):
                 configFile = checkConfig()
                 if configFile != 0:
@@ -427,9 +433,9 @@ def createWindow():
                         data = json.load(file)
                         theme = data.get("theme")
                         if (theme == "dark"):
-                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=True, callback=toggle_text_callback)
+                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=True, callback=changeTheme)
                         elif (theme == "light"):
-                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=False, callback=toggle_text_callback)  
+                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=False, callback=changeTheme)  
     dpg.create_viewport(title='NX-Save-Sync', small_icon='include/icon.ico', large_icon='include/icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
     dpg.setup_dearpygui()
     dpg.show_viewport()
@@ -440,6 +446,90 @@ def createWindow():
     server.shutdown_flag.set()
     dpg.destroy_context()
 
+def closeTitleWindow():
+    global titles, keys, paths
+    dpg.delete_item("titles")
+    dpg.delete_item("array_listbox")
+    titles = []
+    keys = []
+    paths = []
+
+def listTitles():
+    configFile = checkConfig()
+    if configFile == 0:
+        dpg.show_item(output_widget2)
+        return 0
+    with open(configFile, 'r') as file:
+        config = json.load(file)
+    for key, value in config.items():
+        if key != "host" and isinstance(value, list) and len(value) >= 2:
+            keys.append(key)
+            paths.append(value[0])
+            titles.append(value[1])
+    if not titles:
+        dpg.show_item("no_titles_warn")
+        return 0
+    else:
+        dpg.hide_item("no_titles_warn")
+        with dpg.window(tag="titles", label="Titles Window", on_close=closeTitleWindow, pos=(40, 50), no_resize=True, no_collapse=True, no_move=True, modal=True, width=500, height=275):
+            dpg.add_text("All saved titles")
+            with dpg.child_window(border=False):
+                dpg.add_listbox(tag="array_listbox",items=titles,num_items=10,width=-1)
+
+def confirmWrite(tid_value, path_value, name_value):
+    configFile = checkConfig()
+    with open(configFile, 'r') as file:
+        data = json.load(file)
+        data[tid_value] = [path_value, name_value]
+    with open(configFile, 'w') as file:
+        json.dump(data, file, indent=4)
+    cancelWrite()
+    
+def cancelWrite():
+    dpg.delete_item("warning")
+    dpg.delete_item("warn_owerwrite1")
+    dpg.delete_item("warn_owerwrite2")
+    dpg.delete_item("confirm_button")
+    dpg.delete_item("cancel_button")
+    
+def addTitle():
+    with dpg.window(tag="input", label="Input Window", pos=(125, 55), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=210):
+        dpg.add_text("Title ID")
+        dpg.add_input_text(width=250, tag="input_widget_tid")
+        dpg.add_text("Title name")
+        dpg.add_input_text(width=250, tag="input_widget_name")
+        dpg.add_text("Emulator save file path")
+        dpg.add_input_text(width=250, tag="input_widget_path")
+    global pressed_enter
+    input_entered = True
+    while input_entered:
+        keyboard.on_press(checkInput)
+        tid_value = dpg.get_value("input_widget_tid")
+        name_value = dpg.get_value("input_widget_name")
+        path_value = dpg.get_value("input_widget_path")
+        if tid_value != "" and name_value != "" and path_value != "" and pressed_enter:
+            dpg.delete_item("input")
+            dpg.delete_item("input_widget_tid")
+            dpg.delete_item("input_widget_name")
+            dpg.delete_item("input_widget_path")
+            input_entered = False
+        time.sleep(0.1) 
+    keyboard.unhook_all()
+    pressed_enter = False
+    configFile = checkConfig()
+    with open(configFile, 'r') as file:
+        data = json.load(file)
+        if tid_value not in data:
+            data[tid_value] = [path_value, name_value]
+        else:
+            with dpg.window(tag="warning", label="Warning Window", pos=(125, 75), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=160):
+                dpg.add_text("This TID is already saved", tag="warn_owerwrite1")
+                dpg.add_text("The data will be overwritten!", tag="warn_owerwrite2")
+                dpg.add_button(label="Ok", width=150, height=30, tag="confirm_button", callback=lambda: confirmWrite(tid_value, path_value, name_value))
+                dpg.add_button(label="Cancel", width=150, height=30, tag="cancel_button", callback=cancelWrite)
+    with open(configFile, 'w') as file:
+        json.dump(data, file, indent=4)
+    
 def cleanUp():
     printToWidget("Deleteing temp.zip file.\n")
     os.remove(os.path.join(scriptDir, "temp.zip"))
