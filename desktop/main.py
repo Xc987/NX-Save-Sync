@@ -619,65 +619,69 @@ def pull():
     else:
         printToWidget("Couldnt find temp.zip!\n")
         return 0
-    
     with zipfile.ZipFile(zipPath, 'r') as zip_ref:
         zip_ref.extractall(scriptDir)
-    if os.path.exists(tempDir) and os.path.isdir(tempDir):
-        subFolder = [f.name for f in os.scandir(tempDir) if f.is_dir()]
-        if len(subFolder) == 1:
+    foundTitles = False
+    for entry in os.listdir(tempDir):
+        foundTitles = True
+        full_path = os.path.join(tempDir, entry)
+        if os.path.isdir(full_path):
+            if os.path.exists(tempDir) and os.path.isdir(tempDir):
+                subFolder = entry
+                with open(configFile, 'r') as file:
+                    data = json.load(file)
+                    titleDir = os.path.join(tempDir, subFolder)
+                    titleFile = os.path.join(titleDir, "Title_Name/")
+                    entries = os.listdir(titleFile)
+                    files = [entry for entry in entries if os.path.isfile(os.path.join(titleFile, entry))]
+                    if len(files) == 1:
+                        titleName = files[0]
+                        shutil.rmtree(titleFile)
+                    if not subFolder in data:
+                        printToWidget(f"Please enter the emulator save directory for {titleName}\n")
+                        emuPath = inputString()
+                        with open(configFile, 'r') as file:
+                            data = json.load(file)
+                            data[subFolder] = [emuPath, titleName]
+                        with open(configFile, 'w') as file:
+                            json.dump(data, file, indent=4)
+            else:
+                printToWidget("Couldnt find temp folder!\n")
+                return 0
             with open(configFile, 'r') as file:
                 data = json.load(file)
-                titleDir = os.path.join(tempDir, subFolder[0])
-                titleFile = os.path.join(titleDir, "Title_Name/")
-                entries = os.listdir(titleFile)
-                files = [entry for entry in entries if os.path.isfile(os.path.join(titleFile, entry))]
-                if len(files) == 1:
-                    titleName = files[0]
-                    shutil.rmtree(titleFile)
-                if not subFolder[0] in data:
-                    printToWidget(f"Please enter the emulator save directory for {titleName}\n")
-                    emuPath = inputString()
-                    with open(configFile, 'r') as file:
-                        data = json.load(file)
-                        data[subFolder[0]] = [emuPath, titleName]
-                    with open(configFile, 'w') as file:
-                        json.dump(data, file, indent=4)
-        else:
-            printToWidget("Couldnt find any TID subfolders in /temp/!\n")
-            cleanUp()
-    else:
-        printToWidget("Couldnt find temp folder!\n")
-        return 0
-    with open(configFile, 'r') as file:
-        data = json.load(file)
-        titleArray = data[subFolder[0]]
-        dstDir = titleArray[0]
-    srcDir = os.path.join(tempDir, subFolder[0])
-    if os.path.exists(dstDir):
-        printToWidget(f"Deleting any existing save file in {dstDir}\n")
-    else:
-        printToWidget(f"The directory {dstDir} does not exist!\n")
+                titleArray = data[subFolder]
+                dstDir = titleArray[0]
+            srcDir = os.path.join(tempDir, subFolder)
+            if os.path.exists(dstDir):
+                printToWidget(f"Deleting any existing save file in {dstDir}\n")
+            else:
+                printToWidget(f"The directory {dstDir} does not exist!\n")
+                cleanUp()
+                return 0
+            for item in os.listdir(dstDir):
+                itemPath = os.path.join(dstDir, item)
+                try:
+                    if os.path.isfile(itemPath) or os.path.islink(itemPath):
+                        os.unlink(itemPath)
+                    elif os.path.isdir(itemPath):
+                        shutil.rmtree(itemPath)
+                except Exception as e:
+                    printToWidget(f"Failed to delete {itemPath}!\n")
+                    cleanUp()
+                    return 0
+            printToWidget("Moving save file.\n")
+            for item in os.listdir(srcDir):
+                srcItem = os.path.join(srcDir, item)
+                dstItem = os.path.join(dstDir, item)
+                if os.path.isfile(srcItem):
+                    shutil.copy2(srcItem, dstItem)
+                elif os.path.isdir(srcItem):
+                    shutil.copytree(srcItem, dstItem)
+    if (foundTitles == False):
+        printToWidget("Couldnt find any TID subfolders in /temp/!\n")
         cleanUp()
         return 0
-    for item in os.listdir(dstDir):
-        itemPath = os.path.join(dstDir, item)
-        try:
-            if os.path.isfile(itemPath) or os.path.islink(itemPath):
-                os.unlink(itemPath)
-            elif os.path.isdir(itemPath):
-                shutil.rmtree(itemPath)
-        except Exception as e:
-            printToWidget(f"Failed to delete {itemPath}!\n")
-            cleanUp()
-            return 0
-    printToWidget("Moving save file.\n")
-    for item in os.listdir(srcDir):
-        srcItem = os.path.join(srcDir, item)
-        dstItem = os.path.join(dstDir, item)
-        if os.path.isfile(srcItem):
-            shutil.copy2(srcItem, dstItem)
-        elif os.path.isdir(srcItem):
-            shutil.copytree(srcItem, dstItem)
     printToWidget("Deleteing temp.zip file.\n")
     os.remove(os.path.join(scriptDir, "temp.zip"))
     printToWidget("Deleteing temp folder.\n")

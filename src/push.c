@@ -653,10 +653,6 @@ int push() {
                 printf(CONSOLE_ESC(39;6H) "A - Push %d titles | Y - (De)/Select title | X - Select all titles", arrayNum);
             }
             printf(CONSOLE_ESC(0m));
-            printf(CONSOLE_ESC(42;6H));
-            for(int loop = 0; loop < 10; loop++){
-                printf("%d ", selectedTitles[loop]);
-            }
         }
         consoleUpdate(NULL);
     }
