@@ -42,27 +42,52 @@ static void removeDir(const char *path) {
         perror("Error removing directory");
     }
 }
+static int countFilesRec(const char *dir_path) {
+    DIR* dir = opendir(dir_path);
+    int count = 0;
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        char file_path[PATH_MAX];
+        snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, entry->d_name);
+        if (entry->d_type == DT_DIR) {
+            count += countFilesRec(file_path);
+        } else if (entry->d_type == DT_REG) {
+            count++;
+        }
+    }
+    closedir(dir);
+    return count;
+}
 static void cleanDir(const char *path) {
+    int processed_files = 0;
+    int total_files = countFilesRec(path);
     DIR *dir;
     struct dirent *ent;
     char full_path[512];
-    if ((dir = opendir(path)) != NULL) {
-        while ((ent = readdir(dir)) != NULL) {
+    if ((dir = opendir(path))) {
+        while ((ent = readdir(dir))) {
             if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
                 continue;
             }
-
             snprintf(full_path, sizeof(full_path), "%s/%s", path, ent->d_name);
-
             if (ent->d_type == DT_DIR) {
                 cleanDir(full_path);
                 rmdir(full_path);
             } else {
                 remove(full_path);
+                processed_files++;
+                printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C));
+                printf("Deleting any existing save file in save:/ - %d / %d (%.2f%%)\n", processed_files, total_files, ((float)processed_files / total_files) * 100);
+                consoleUpdate(NULL);
             }
         }
         closedir(dir);
     }
+    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Deleting any existing save file in save:/                                  \n");
+    consoleUpdate(NULL);
 }
 static uint64_t hexToU64(const char *str) {
     uint64_t result = 0;
@@ -82,6 +107,8 @@ static void hexToUpper(char *str) {
     }
 }
 static void moveSave(const char *src, const char *dest) {
+    int processed_files = 0;
+    int total_files = countFilesRec(src);
     DIR *dir;
     struct dirent *ent;
     char src_path[512];
@@ -105,10 +132,18 @@ static void moveSave(const char *src, const char *dest) {
                     while ((bytes = fread(buffer, 1, sizeof(buffer), src_file)) > 0) {
                         fwrite(buffer, 1, bytes, dest_file);
                     }
+                    processed_files++;
+                    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C));
+                    printf("Moving save file - %d / %d (%.2f%%)\n", processed_files, total_files, ((float)processed_files / total_files) * 100);
+                    consoleUpdate(NULL);
                     fclose(src_file);
                     fclose(dest_file);
                     fsdevCommitDevice("save");
                 } else {
+                    processed_files++;
+                    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C));
+                    printf("Moving save file - %d / %d (%.2f%%)\n", processed_files, total_files, ((float)processed_files / total_files) * 100);
+                    consoleUpdate(NULL);
                     if (src_file) fclose(src_file);
                     if (dest_file) fclose(dest_file);
                     fsdevCommitDevice("save");
@@ -119,6 +154,8 @@ static void moveSave(const char *src, const char *dest) {
     } else {
         printf("Failed to open directory: %s\n", src);
     }
+    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Moving save file                                             \n");
+    consoleUpdate(NULL);
 }
 static void makeDir(const char *dir) {
     char tmp[256];
@@ -141,7 +178,7 @@ static void makeDir(const char *dir) {
 static bool unzip(const char *zip_path, const char *extract_path) {
     mz_zip_archive zip_archive;
     memset(&zip_archive, 0, sizeof(zip_archive));
-        if(!mz_zip_reader_init_file(&zip_archive, zip_path, 0)) {
+    if(!mz_zip_reader_init_file(&zip_archive, zip_path, 0)) {
         return false;
     }
     int file_count = (int)mz_zip_reader_get_num_files(&zip_archive);
@@ -149,6 +186,7 @@ static bool unzip(const char *zip_path, const char *extract_path) {
         mz_zip_reader_end(&zip_archive);
         return false;
     }
+    int extracted_count = 0;
     for(int i = 0; i < file_count; i++) {
         mz_zip_archive_file_stat file_stat;
         if(!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
@@ -168,8 +206,13 @@ static bool unzip(const char *zip_path, const char *extract_path) {
         if(!mz_zip_reader_extract_to_file(&zip_archive, i, out_path, 0)) {
             continue;
         }
+        extracted_count++;
+        printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Unzipping temp.zip - %d / %d (%.2f%%)\n", extracted_count, file_count, ((float)extracted_count / file_count) * 100);
+        consoleUpdate(NULL);
     }
     mz_zip_reader_end(&zip_archive);
+    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Unzipping temp.zip                                             \n");
+    consoleUpdate(NULL);
     return true;
 }
 static int getValue(const char *json, const char *key, char *value, size_t value_size) {
@@ -241,7 +284,7 @@ static int downloadZip(char *host) {
                     if (content_length > 0) {
                         double current_mb = (double)total_bytes_received / (1024 * 1024);
                         double total_mb = (double)content_length / (1024 * 1024);
-                        printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip. %.2f / %.2f MB\n", current_mb, total_mb);
+                        printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip - %.2f / %.2f MB (%.2f%%)\n", current_mb, total_mb, ((float)current_mb / total_mb) * 100);
                         consoleUpdate(NULL);
                     }
                 }
@@ -254,7 +297,7 @@ static int downloadZip(char *host) {
             if (content_length > 0) {
                 double current_mb = (double)total_bytes_received / (1024 * 1024);
                 double total_mb = (double)content_length / (1024 * 1024);
-                printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip. %.2f / %.2f MB\n", current_mb, total_mb);
+                printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip - %.2f / %.2f MB\n", current_mb, total_mb);
                 consoleUpdate(NULL);
             }
         }
@@ -283,7 +326,6 @@ static void cleanUp() {
     consoleUpdate(NULL);
     removeDir("sdmc:/temp/");
 }
-
 int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
