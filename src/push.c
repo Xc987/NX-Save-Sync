@@ -654,6 +654,14 @@ int push() {
             }
             printf(CONSOLE_ESC(0m));
         }
+        if (kDown & HidNpadButton_X) {
+            for (int i = 1; i < totalApps + 1; i++) {
+                selectedTitles[arrayNum++] = i;
+            }
+            printf(CONSOLE_ESC(0m));
+            clearTitles();
+            break;
+        }
         consoleUpdate(NULL);
     }
     nsExit();

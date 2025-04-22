@@ -434,7 +434,7 @@ int pull() {
                         printf(CONSOLE_ESC(1C)"                                                                        \n");
                     }
                     printf(CONSOLE_ESC(16;2H) CONSOLE_ESC(38;5;255m));
-                    printf("Moving save data - %d / %d\n\n", currentSubfolder, count);
+                    printf("Moving title save data - %d / %d\n\n", currentSubfolder, count);
                     char *preHexTID = entry->d_name;
                     folderName = entry->d_name;
                     hexToUpper(folderName);

@@ -18,7 +18,6 @@ if getattr(sys, 'frozen', False):
 elif __file__:
     scriptDir = os.path.dirname(__file__)
 selected = 0
-selectedTitle = 0
 selected_items = set()
 tempDir = os.path.join(scriptDir, "temp")
 zipPath = os.path.join(scriptDir, "temp.zip")
@@ -591,6 +590,12 @@ def changeSelection(sender, app_data, user_data):
         dpg.show_item("start_push_button")
     dpg.set_item_label("start_push_button", f"Push {len(selected_items)} titles")
 
+def selectAllTitles():
+    global selected_items
+    selected_items = set(titles)
+    print(selected_items)
+    push()
+
 def selectTitle():
     configFile = checkConfig()
     if configFile == 0:
@@ -616,7 +621,9 @@ def selectTitle():
                     with dpg.group(horizontal=True):
                         dpg.add_checkbox(callback=changeSelection, user_data=item, tag=item)
                         dpg.add_text(f"{item}", tag=f"{item}_text")
-            dpg.add_button(label="Push 0 titles", callback=push, tag="start_push_button")
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Push 0 titles", callback=push, tag="start_push_button")
+                dpg.add_button(label="Select all titles", callback=selectAllTitles)
             dpg.hide_item("start_push_button")
 
 def startPush():
@@ -729,7 +736,7 @@ def pull():
 
 def push():
     dpg.delete_item("titles")
-    global selectedTitle, titles, keys, paths
+    global titles, keys, paths, selected_items
     dpg.set_value(output_widget2, "")
     dpg.show_item(output_widget2)
     os.mkdir(tempDir)
@@ -756,6 +763,7 @@ def push():
     titles = []
     keys = []
     paths = []
+    selected_items = set()
     printToWidget2("Zipping /temp/ folder!\n")
     server = uploadZip()
     server_thread = threading.Thread(target=server.run)
