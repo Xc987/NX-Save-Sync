@@ -352,7 +352,6 @@ static void getTitleName(u64 titleId, u32 recordCount) {
     strcpy(titleIDS[arrayNum], titleIdStr);
     arrayNum += 1;
     printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
-    totalApps = recordCount;
     printf("Scanning installed titles, %d of %d",arrayNum, recordCount);
     printf(CONSOLE_ESC(0m));
     consoleUpdate(NULL);
@@ -369,7 +368,15 @@ static void listTitles() {
     if (R_SUCCEEDED(rc)) {
         for (int i = 0; i < recordCount; i++) {
             u64 titleId = records[i].application_id;
-            getTitleName(titleId, recordCount);
+            Result rc=0;
+            if (R_SUCCEEDED(rc)) { 
+                rc = fsdevMountSaveData("save", titleId, userAccounts[selectedUser]);
+                if (R_SUCCEEDED(rc)) {
+                    fsdevUnmountDevice("save");
+                    totalApps += 1;
+                    getTitleName(titleId, recordCount);
+                }
+            }
         }
     } else {
         printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to list application records.\n" CONSOLE_ESC(0m));
@@ -486,6 +493,9 @@ int push() {
     nsInitialize();
     listTitles();
     maxPages += arrayNum / 29;
+    if (arrayNum % 29 == 0) {
+        maxPages -= 1;
+    }
     arrayNum = 0;
     printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     printf("                                                                      ");
