@@ -326,6 +326,49 @@ static void cleanUp() {
     consoleUpdate(NULL);
     removeDir("sdmc:/temp/");
 }
+static void getTitleName(u64 title) {
+    Result rc=0;
+    u64 application_id=title;
+    NsApplicationControlData *buf=NULL;
+    u64 outsize=0;
+    NacpLanguageEntry *langentry = NULL;
+    char name[0x201];
+    buf = (NsApplicationControlData*)malloc(sizeof(NsApplicationControlData));
+    if (buf==NULL) {
+        rc = MAKERESULT(Module_Libnx, LibnxError_OutOfMemory);
+        printf("Failed to alloc mem.\n");
+    } else {
+        memset(buf, 0, sizeof(NsApplicationControlData));
+    }
+    if (R_SUCCEEDED(rc)) {
+        rc = nsInitialize();
+        if (R_FAILED(rc)) {
+            printf("nsInitialize() failed: 0x%x\n", rc);
+        }
+    }
+    if (R_SUCCEEDED(rc)) {
+        rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, application_id, buf, sizeof(NsApplicationControlData), &outsize);
+        if (R_FAILED(rc)) {
+            printf("nsGetApplicationControlData() failed: 0x%x\n", rc);
+        }
+        if (outsize < sizeof(buf->nacp)) {
+            rc = -1;
+            printf("Outsize is too small: 0x%lx.\n", outsize);
+        }
+        if (R_SUCCEEDED(rc)) {
+            rc = nacpGetLanguageEntry(&buf->nacp, &langentry);
+            if (R_FAILED(rc) || langentry==NULL) printf("Failed to load LanguageEntry.\n");
+        }
+        if (R_SUCCEEDED(rc)) {
+            memset(name, 0, sizeof(name));
+            strncpy(name, langentry->name, sizeof(name)-1);
+            printf(CONSOLE_ESC(1C) "Title: %s\n", name);
+        }
+        nsExit();
+    }
+    free(buf);
+}
+
 int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
@@ -364,53 +407,72 @@ int pull() {
         fclose(test);
         unzip("sdmc:/temp.zip", "sdmc:/");
     }
-    DIR *dir;
-    struct dirent *ent;
-    char *folderName = NULL;
-    int folderCount = 0;
-    dir = opendir("sdmc:/temp/");
-    while ((ent = readdir(dir)) != NULL) {
-        if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
+    DIR *dirw;
+    struct dirent *entry;
+    int count = 0;
+    dirw = opendir("sdmc:/temp");
+    while ((entry = readdir(dirw)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
-        char fullPath[PATH_MAX];
-        snprintf(fullPath, sizeof(fullPath), "%s%s", "sdmc:/temp/", ent->d_name);
-        DIR *testDir = opendir(fullPath);
-        if (testDir != NULL) {
-            closedir(testDir);
-            folderCount++;
-            folderName = strdup(ent->d_name);
+        }
+        if (entry->d_type == DT_DIR) {
+            count++;
         }
     }
-    closedir(dir);
-    hexToUpper(folderName);
-    uint64_t application_id = hexToU64(folderName);
-    if (R_SUCCEEDED(rc)) {
-        printf(CONSOLE_ESC(1C) "Mounting save:/\n");
-        consoleUpdate(NULL);
-        rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
-        if (R_FAILED(rc)) {
-            printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
-            cleanUp();
-            return 0;
+    closedir(dirw);
+    char *folderName = NULL;
+    int currentSubfolder = 1;
+    DIR *dir = opendir("sdmc:/temp");
+        if (dir != NULL) {
+            struct dirent *entry;
+            while ((entry = readdir(dir)) != NULL) {
+                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                    continue;
+                if (entry->d_type == DT_DIR) {
+                    printf(CONSOLE_ESC(16;1H) CONSOLE_ESC(38;5;255m));
+                    for (int i = 0; i < 10; i++) {
+                        printf(CONSOLE_ESC(1C)"                                                                        \n");
+                    }
+                    printf(CONSOLE_ESC(16;2H) CONSOLE_ESC(38;5;255m));
+                    printf("Moving save data - %d / %d\n\n", currentSubfolder, count);
+                    char *preHexTID = entry->d_name;
+                    folderName = entry->d_name;
+                    hexToUpper(folderName);
+                    uint64_t application_id = hexToU64(folderName);
+                    getTitleName(application_id);
+                    printf(CONSOLE_ESC(1C) "TID: %s\n", preHexTID);
+                    if (R_SUCCEEDED(rc)) {
+                        printf(CONSOLE_ESC(1C) "Mounting save:/\n");
+                        consoleUpdate(NULL);
+                        rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
+                        if (R_FAILED(rc)) {
+                            printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
+                            cleanUp();
+                            return 0;
+                        }
+                    }
+                    if (R_SUCCEEDED(rc)) {
+                        printf(CONSOLE_ESC(1C) "Deleting any existing save file in save:/\n");
+                        consoleUpdate(NULL);
+                        cleanDir("save:/");
+                        char backup_path[64];
+                        snprintf(backup_path, sizeof(backup_path), "sdmc:/temp/%016lx", application_id);
+                        printf(CONSOLE_ESC(1C) "Moving save file\n");
+                        consoleUpdate(NULL);
+                        moveSave(backup_path, "save:/");
+                        rc = fsdevCommitDevice("save");
+                        if (R_FAILED(rc)) {
+                            printf("Failed to commit changes: 0x%x\n", rc);
+                            cleanUp();
+                            return 0;
+                        }
+                        fsdevUnmountDevice("save");
+                    }
+                    currentSubfolder += 1;
+                }
+            }
+            closedir(dir);
         }
-    }
-    if (R_SUCCEEDED(rc)) {
-        printf(CONSOLE_ESC(1C) "Deleting any existing save file in save:/\n");
-        consoleUpdate(NULL);
-        cleanDir("save:/");
-        char backup_path[64];
-        snprintf(backup_path, sizeof(backup_path), "sdmc:/temp/%016lx", application_id);
-        printf(CONSOLE_ESC(1C) "Moving save file\n");
-        consoleUpdate(NULL);
-        moveSave(backup_path, "save:/");
-        rc = fsdevCommitDevice("save");
-        if (R_FAILED(rc)) {
-            printf("Failed to commit changes: 0x%x\n", rc);
-            cleanUp();
-            return 0;
-        }
-        fsdevUnmountDevice("save");
-    }
     cleanUp();
     return 1;
 }
