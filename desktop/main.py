@@ -19,6 +19,7 @@ elif __file__:
     scriptDir = os.path.dirname(__file__)
 selected = 0
 selectedTitle = 0
+selected_items = set()
 tempDir = os.path.join(scriptDir, "temp")
 zipPath = os.path.join(scriptDir, "temp.zip")
 input_text = None
@@ -28,6 +29,7 @@ titles = []
 keys = []
 paths = []
 server_thread = None
+themesel = 1
 
 def checkConfig():
     appdataPath = os.getenv('LOCALAPPDATA')
@@ -246,7 +248,7 @@ class uploadZip:
             printToWidget2("Deleteing temp folder\n")
             shutil.rmtree(tempDir)
             printToWidget2("Process ended successfully!\n")
-            
+
 def checkInput(event):
     global pressed_enter
     if event.name == 'enter':
@@ -270,7 +272,27 @@ def inputString():
     pressed_enter = False
     return input_value
 
+def inputStringPath(titleName):
+    with dpg.window(tag="input", label="Input Window", pos=(125, 115), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=125):
+        dpg.add_text("Input emulator save file path for title:")
+        dpg.add_text(titleName)
+        dpg.add_input_text(width=250, tag="input_widget")
+    global pressed_enter
+    input_entered = True
+    while input_entered:
+        keyboard.on_press(checkInput)
+        input_value = dpg.get_value("input_widget")
+        if input_value != "" and pressed_enter:
+            dpg.delete_item("input_widget")
+            dpg.delete_item("input")
+            input_entered = False
+        time.sleep(0.1) 
+    keyboard.unhook_all()
+    pressed_enter = False
+    return input_value
+
 def changeTheme(sender, app_data):
+    global themesel
     appdataPath = os.getenv('LOCALAPPDATA')
     if not appdataPath:
         appdataPath = Path.home() / 'AppData' / 'Local'
@@ -285,7 +307,8 @@ def changeTheme(sender, app_data):
         config["theme"] = theme
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
-        setTheme(1)
+        themesel = 1
+        setTheme()
     else:
         config = {}
         with open(configFile, 'r') as f:
@@ -294,10 +317,11 @@ def changeTheme(sender, app_data):
         config["theme"] = theme
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
-        setTheme(2)
+        themesel = 2
+        setTheme()
 
-def setTheme(theme):
-    if (theme == 1):
+def setTheme():
+    if (themesel == 1):
         with dpg.theme() as appTheme:
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (25, 25, 25))
@@ -308,7 +332,7 @@ def setTheme(theme):
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (40, 40, 40))
                 dpg.add_theme_color(dpg.mvThemeCol_Tab, (40, 40, 40))
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5)
-    elif (theme == 2):
+    elif (themesel == 2):
         with dpg.theme() as appTheme:
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (240, 240, 240))
@@ -348,7 +372,7 @@ def setTheme(theme):
     dpg.bind_theme(appTheme)
 
 def createWindow():
-    global output_widget, output_widget2
+    global output_widget, output_widget2, themesel
     dpg.create_context()
     with dpg.font_registry():
         default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16*2)
@@ -358,9 +382,11 @@ def createWindow():
             data = json.load(file)
             theme = data.get("theme")
             if (theme == "dark"):
-                setTheme(1)
+                themesel = 1
+                setTheme()
             elif (theme == "light"):
-                setTheme(2)
+                themesel = 2
+                setTheme()
             elif (theme == None):
                 appdataPath = os.getenv('LOCALAPPDATA')
                 if not appdataPath:
@@ -374,7 +400,8 @@ def createWindow():
                 config["theme"] = "dark"
                 with open(configFile, 'w') as f:
                     json.dump(config, f, indent=4)
-                setTheme(1)
+                themesel = 1
+                setTheme()
     else:
         appdataPath = os.getenv('LOCALAPPDATA')
         if not appdataPath:
@@ -385,8 +412,9 @@ def createWindow():
         config = {}
         with open(configFile, 'w') as f:
             theme = "dark"
-            json.dump({"theme": theme}, f, indent=4) 
-        setTheme(1)
+            json.dump({"theme": theme}, f, indent=4)
+        themesel = 1
+        setTheme()
     with dpg.window(tag="Primary Window", label="Main Window", no_resize=True, no_collapse=True, no_close=True, no_move=True, width=800, height=600):
         dpg.bind_font(default_font)
         dpg.set_global_font_scale(0.57)
@@ -546,16 +574,22 @@ def printToWidget2(message):
     if output_widget2 is not None:
         dpg.set_value(output_widget2, dpg.get_value(output_widget2) + message)
 
-def getSelectedTitle(sender, app_data):
-    global selectedTitle, titles, keys, paths
-    selectedTitle = titles.index(app_data)
-    dpg.delete_item("titles")
-    result = push()
-    if (result == 0):
-        printToWidget2("Process ended with an error!\n")
-    titles = []
-    keys = []
-    paths = []
+def changeSelection(sender, app_data, user_data):
+    item = user_data
+    if app_data:
+        dpg.configure_item(f"{item}_text", color=(0, 135, 215))
+        selected_items.add(item)
+    else:
+        if (themesel == 1):
+            dpg.configure_item(f"{item}_text", color=(255, 255, 255))
+        else:
+            dpg.configure_item(f"{item}_text", color=(30, 30, 30))
+        selected_items.discard(item)
+    if (len(selected_items) == 0):
+        dpg.hide_item("start_push_button")
+    else:
+        dpg.show_item("start_push_button")
+    dpg.set_item_label("start_push_button", f"Push {len(selected_items)} titles")
 
 def selectTitle():
     configFile = checkConfig()
@@ -577,8 +611,13 @@ def selectTitle():
     else:
         with dpg.window(tag="titles", label="Title selection Window", pos=(40, 50), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=500, height=275):
             dpg.add_text("Select a title you want to push save file")
-            with dpg.child_window(border=False):
-                dpg.add_listbox(tag="array_listbox",items=titles,num_items=10,width=-1, callback=getSelectedTitle)
+            with dpg.child_window(height=175, width=-1, border=False):
+                for item in titles:
+                    with dpg.group(horizontal=True):
+                        dpg.add_checkbox(callback=changeSelection, user_data=item, tag=item)
+                        dpg.add_text(f"{item}", tag=f"{item}_text")
+            dpg.add_button(label="Push 0 titles", callback=push, tag="start_push_button")
+            dpg.hide_item("start_push_button")
 
 def startPush():
     global selected
@@ -639,7 +678,7 @@ def pull():
                         shutil.rmtree(titleFile)
                     if not subFolder in data:
                         printToWidget(f"Please enter the emulator save directory for {titleName}\n")
-                        emuPath = inputString()
+                        emuPath = inputStringPath(titleName)
                         with open(configFile, 'r') as file:
                             data = json.load(file)
                             data[subFolder] = [emuPath, titleName]
@@ -689,27 +728,34 @@ def pull():
     return 1
 
 def push():
+    dpg.delete_item("titles")
+    global selectedTitle, titles, keys, paths
     dpg.set_value(output_widget2, "")
     dpg.show_item(output_widget2)
-    printToWidget2(f"Selected title: {titles[selectedTitle]}\n")
-    printToWidget2(f"Selected TID: {keys[selectedTitle]}\n")
-    printToWidget2(f"Title save data path: {paths[selectedTitle]}\n")
     os.mkdir(tempDir)
-    subFolder = os.path.join(tempDir, keys[selectedTitle])
-    os.mkdir(subFolder)
-    printToWidget2("Exporting save data\n")
-    if os.path.exists(paths[selectedTitle]) and os.path.isdir(paths[selectedTitle]):
-        shutil.copytree(paths[selectedTitle], subFolder, dirs_exist_ok=True)
-    else:
-        printToWidget2("Couldnt find the save data folder!\n")
-        shutil.rmtree("temp")
-        return 0
-    with zipfile.ZipFile('temp.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk('temp'):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, start='temp')
-                zipf.write(file_path, arcname=os.path.join('temp', arcname))
+    for i in range(0, len(selected_items)):
+        selectedTitle = titles.index(list(selected_items)[i])
+        printToWidget2(f"Selected title: {titles[selectedTitle]}\n")
+        printToWidget2(f"Selected TID: {keys[selectedTitle]}\n")
+        printToWidget2(f"Title save data path: {paths[selectedTitle]}\n")
+        subFolder = os.path.join(tempDir, keys[selectedTitle])
+        os.mkdir(subFolder)
+        printToWidget2("Exporting save data\n")
+        if os.path.exists(paths[selectedTitle]) and os.path.isdir(paths[selectedTitle]):
+            shutil.copytree(paths[selectedTitle], subFolder, dirs_exist_ok=True)
+        else:
+            printToWidget2("Couldnt find the save data folder!\n")
+            shutil.rmtree("temp")
+            return 0
+        with zipfile.ZipFile('temp.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk('temp'):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, start='temp')
+                    zipf.write(file_path, arcname=os.path.join('temp', arcname))
+    titles = []
+    keys = []
+    paths = []
     printToWidget2("Zipping /temp/ folder!\n")
     server = uploadZip()
     server_thread = threading.Thread(target=server.run)
