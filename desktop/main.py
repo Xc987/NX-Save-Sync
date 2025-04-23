@@ -659,7 +659,7 @@ def pull():
             printToWidget("Switch IP not set!\n")
             return 0
     if downloadZip(host, 8080, "temp.zip") == 0:
-        return 0
+       return 0
     if os.path.exists(os.path.join(scriptDir, "temp.zip")):
         printToWidget("Unzipping temp.zip\n")
     else:
@@ -678,12 +678,13 @@ def pull():
                     data = json.load(file)
                     titleDir = os.path.join(tempDir, subFolder)
                     titleFile = os.path.join(titleDir, "Title_Name/")
-                    entries = os.listdir(titleFile)
-                    files = [entry for entry in entries if os.path.isfile(os.path.join(titleFile, entry))]
-                    if len(files) == 1:
-                        titleName = files[0]
+                    titleFiletxt = os.path.join(titleFile, "title.txt")
+                    with open(titleFiletxt,'r', encoding='utf-8') as f:
+                        titleName = f.readlines()[0]
+                    if len(titleName) >= 1:
                         shutil.rmtree(titleFile)
                     if not subFolder in data:
+                        print(titleName)
                         printToWidget(f"Please enter the emulator save directory for {titleName}\n")
                         emuPath = inputStringPath(titleName)
                         with open(configFile, 'r') as file:

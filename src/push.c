@@ -9,6 +9,8 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <wchar.h>
+#include <locale.h>
 #include "main.h"
 #include "miniz.h"
 
@@ -24,6 +26,21 @@ static int selectedTitles[256];
 static int selectedInPage = 1;
 static char *pushingTitle = 0;
 static char *pushingTID = 0;
+
+static char* wide_to_utf8(const wchar_t* wide_str) {
+    if (!wide_str) return NULL;
+    size_t size = wcstombs(NULL, wide_str, 0);
+    if (size == (size_t)-1) return NULL;
+    char* utf8_str = malloc(size + 1);
+    if (!utf8_str) return NULL;
+    size_t converted = wcstombs(utf8_str, wide_str, size + 1);
+    if (converted == (size_t)-1) {
+        free(utf8_str);
+        return NULL;
+    }
+    utf8_str[converted] = '\0';
+    return utf8_str;
+}
 
 static int sendAll(int socket, const void *buffer, size_t length) {
     size_t sent = 0;
@@ -485,6 +502,7 @@ static void cleanUp() {
     removeDir("sdmc:/temp/");
 }
 int push() {
+    setlocale(LC_ALL, "en_US.UTF-8");
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
@@ -712,9 +730,26 @@ int push() {
         snprintf(title_name_folder, sizeof(title_name_folder), "%sTitle_Name/", title_id_folder);
         mkdir(title_name_folder, 0777);
         char title_name_file[256];
-        snprintf(title_name_file, sizeof(title_name_file), "%s%s", title_name_folder, pushingTitle);
-        FILE *file = fopen(title_name_file, "w");
-        fclose(file);
+        snprintf(title_name_file, sizeof(title_name_file), "%stitle.txt", title_name_folder);
+        wchar_t title_name_wide[256];
+        size_t converted_chars = mbstowcs(title_name_wide, pushingTitle, sizeof(title_name_wide)/sizeof(wchar_t));
+        char* utf8_str = wide_to_utf8(title_name_wide);
+        if (utf8_str) {
+            FILE* file = fopen(title_name_file, "w");
+            if (file) {
+                fwrite(utf8_str, 1, strlen(utf8_str), file);
+                fclose(file);
+            } else {
+                printf(CONSOLE_ESC(1C) "Failed to create title name file!\n");
+                cleanUp();
+                return 0;
+            }
+            free(utf8_str);
+        } else {
+            printf(CONSOLE_ESC(1C) "Failed to convert string to UTF-8!\n");
+            cleanUp();
+            return 0;
+        }
     }
     printf(CONSOLE_ESC(1C)"Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
