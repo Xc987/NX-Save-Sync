@@ -160,21 +160,21 @@ int main(int argc, char **argv) {
             returnValue = 3;
             break;
         }
-        if (kDown & HidNpadButton_L) {
+        if (kDown & HidNpadButton_AnyLeft) {
             if (selected != 1) {
                 selected -= 1;
                 drawTabs(selected);
                 drawSelected(selected);
             }
         }
-        if (kDown & HidNpadButton_R) {
+        if (kDown & HidNpadButton_AnyRight) {
             if (selected != 3) {
                 selected += 1;
                 drawTabs(selected);
                 drawSelected(selected);
             }
         }
-        if (kDown & HidNpadButton_ZL) {
+        if (kDown & HidNpadButton_ZL || kDown & HidNpadButton_L) {
             if (selectedUser != 0) {
                 selectedUser -= 1;
                 clearSelectedUser();
@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
                 printf("Selected user: %s", userNames[selectedUser]);
             }
         }
-        if (kDown & HidNpadButton_ZR) {
+        if (kDown & HidNpadButton_ZR || kDown & HidNpadButton_R) {
             if (selectedUser != total_users - 1) {
                 selectedUser += 1;
                 clearSelectedUser();

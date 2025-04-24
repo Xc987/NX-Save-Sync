@@ -324,18 +324,21 @@ def setTheme():
         with dpg.theme() as appTheme:
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (25, 25, 25))
-                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (20, 20, 20))
+                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (37, 37, 38))
                 dpg.add_theme_color(dpg.mvThemeCol_Text, (230, 230, 230))
                 dpg.add_theme_color(dpg.mvThemeCol_Button, (60, 60, 60))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (80, 80, 80))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (40, 40, 40))
                 dpg.add_theme_color(dpg.mvThemeCol_Tab, (40, 40, 40))
+                dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg, (37, 37, 38), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5)
+            with dpg.theme_component(dpg.mvListbox):
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (37, 37, 38, 255), category=dpg.mvThemeCat_Core)
     elif (themesel == 2):
         with dpg.theme() as appTheme:
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (240, 240, 240))
-                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (250, 250, 250))
+                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (255, 255, 255))
                 dpg.add_theme_color(dpg.mvThemeCol_Text, (30, 30, 30))
                 dpg.add_theme_color(dpg.mvThemeCol_Button, (180, 180, 180))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (200, 200, 200))
@@ -346,7 +349,7 @@ def setTheme():
                 dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (95, 166, 216), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (95, 166, 216), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (95, 166, 216), category=dpg.mvThemeCat_Core)
-                dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg, (230, 230, 230), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg, (255, 255, 255), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrab, (180, 180, 180), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabHovered, (150, 150, 150), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabActive, (120, 120, 120), category=dpg.mvThemeCat_Core)
@@ -362,11 +365,7 @@ def setTheme():
                 dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (95, 166, 216))
                 dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (180, 180, 180))
             with dpg.theme_component(dpg.mvListbox):
-                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (240, 240, 240, 255), category=dpg.mvThemeCat_Core)
-                dpg.add_theme_color(dpg.mvThemeCol_Text, (20, 20, 20, 255), category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
-                dpg.add_theme_color(dpg.mvThemeCol_Border, (180, 180, 180, 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (255, 255, 255, 255), category=dpg.mvThemeCat_Core)
 
     dpg.bind_theme(appTheme)
 

@@ -3,7 +3,7 @@
 #include "main.h"
 
 void drawBorder() {
-    printf(CONSOLE_ESC(1;1H));
+    printf(CONSOLE_ESC(1;1H) CONSOLE_ESC(38;5;255m));
     printf("%c",218);
     for (int i = 0; i < 78; i++) {
         printf("%c",196);

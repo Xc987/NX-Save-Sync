@@ -519,12 +519,28 @@ int push() {
     printf("                                                                      ");
     printf(CONSOLE_ESC(7;28H)"%s%d", "Select a title. Page 1 / ", maxPages);
     printf(CONSOLE_ESC(39;6H) "A - Push title | Y - (De)/Select title | X - Select all titles");
+    printf(CONSOLE_ESC(8;6H));
+    for (int i = 0; i < 70; i++) {
+        printf("%c",196);
+    }
+    printf(CONSOLE_ESC(38;6H));
+    for (int i = 0; i < 70; i++) {
+        printf("%c",196);
+    }
     drawTitles();
     drawSelected();
+    while(true) {
+        padUpdate(&pad);
+        if (padGetButtons(&pad) & HidNpadButton_A) {
+            svcSleepThread(100000);
+        } else {
+            break;
+        }
+    }
     while (appletMainLoop()) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
-        if (kDown & HidNpadButton_Plus) {
+        if (kDown & HidNpadButton_Plus || kDown & HidNpadButton_B) {
             printf(CONSOLE_ESC(0m));
             clearTitles();
             printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
@@ -593,7 +609,7 @@ int push() {
                 }
             }
         }
-        if (kDown & HidNpadButton_L) {
+        if (kDown & HidNpadButton_AnyLeft) {
             if (currentPage != 1) {
                 clearSelected();
                 currentPage -= 1;
@@ -608,7 +624,7 @@ int push() {
                 printf(CONSOLE_ESC(0m));
             }
         }
-        if (kDown & HidNpadButton_R) {
+        if (kDown & HidNpadButton_AnyRight) {
             if (currentPage != maxPages) {
                 clearSelected();
                 currentPage += 1;
@@ -621,22 +637,6 @@ int push() {
                 printf("                                                                      ");
                 printf(CONSOLE_ESC(7;28H)"%s%d%s%d", "Select a title. Page ", currentPage, " / ", maxPages);
                 printf(CONSOLE_ESC(0m));
-            }
-        }
-        if (kDown & HidNpadButton_ZL) {
-            if (selectedUser != 0) {
-                selectedUser -= 1;
-                clearSelectedUser();
-                printf(CONSOLE_ESC(45;2H) CONSOLE_ESC(38;5;255m));
-                printf("Selected user: %s", userNames[selectedUser]);
-            }
-        }
-        if (kDown & HidNpadButton_ZR) {
-            if (selectedUser != total_users - 1) {
-                selectedUser += 1;
-                clearSelectedUser();
-                printf(CONSOLE_ESC(45;2H) CONSOLE_ESC(38;5;255m));
-                printf("Selected user: %s", userNames[selectedUser]);
             }
         }
         if (kDown & HidNpadButton_A) {
