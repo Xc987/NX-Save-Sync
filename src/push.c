@@ -683,6 +683,10 @@ int push() {
             printf(CONSOLE_ESC(0m));
         }
         if (kDown & HidNpadButton_X) {
+            arrayNum = 0;
+            for (int i = 0; i < 255 + 1; i++) {
+                selectedTitles[i] = 0;
+            }
             for (int i = 1; i < totalApps + 1; i++) {
                 selectedTitles[arrayNum++] = i;
             }

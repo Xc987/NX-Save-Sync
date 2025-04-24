@@ -6,8 +6,8 @@ NX Save Sync is a switch homebrew app to quickly sync save files between switch 
 
 ### Sync from switch to pc
 
-- Run switch app and select "Start serever" in Push tab, use L / R to move between tabs.
-- Press ZL / ZR to change the user and L / R to move between pages, select a title you want to sync.
+- Run switch app, press ZL / ZR or L / R to change the current user and select "Start server" in Push tab, move between tabs with any left / any right 
+- Select only one title with A, multiple titles with Y (select / deselect) and A to start pushing (not including the title thats hovered) or X to select all titles, move between pages with any left / any right 
 - If no errors occured, you should see switch IP in yellow
 - Open pc app, go to config tab and set the switch IP - **Only for the first time when syncing from switch to pc**
 - In pc app, go to Pull tab and select "Connect to switch"
@@ -17,7 +17,7 @@ NX Save Sync is a switch homebrew app to quickly sync save files between switch 
 ### Sync from pc to switch
 
 - Open pc app, go to Push tab and select "Start server"
-- Select the title you want to sync
+- Select the title(s) or all titles you want to push
 - If no errors occured, you should see pc IP
 - Run switch app, go to Config tab and select "Set PC IP" and enter the pc IP. - **Only for the first time when syncing from pc to switch**
 - In switch app, go to Pull tab and select "Connect to PC"

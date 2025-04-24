@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
     getUsers();
     drawBorder();
     drawTabs(selected);
-    printf(CONSOLE_ESC(1;2H) CONSOLE_ESC(38;5;255m) "NX-Save-Sync v2.0.0\n\n");
+    printf(CONSOLE_ESC(1;2H) CONSOLE_ESC(38;5;255m) "NX-Save-Sync v2.1.0\n\n");
     printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(45;2H) CONSOLE_ESC(38;5;255m));
