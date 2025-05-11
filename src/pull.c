@@ -368,7 +368,6 @@ static void getTitleName(u64 title) {
     }
     free(buf);
 }
-
 int pull() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;

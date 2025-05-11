@@ -17,6 +17,7 @@
 static volatile bool shutdownRequested = false;
 static char titleNames[256][100];
 static char titleIDS[256][17];
+static float titleSaveSize[256];
 static int totalApps = 0;
 static int arrayNum = 0;
 static int currentPage = 1;
@@ -27,6 +28,33 @@ static int selectedInPage = 1;
 static char *pushingTitle = 0;
 static char *pushingTID = 0;
 
+static u64 calculateFolderSize(const char *path) {
+    u64 totalSize = 0;
+    DIR *dir;
+    struct dirent *entry;
+    struct stat statbuf;
+
+    if ((dir = opendir(path)) == NULL) {
+        return 0;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        char fullPath[PATH_MAX];
+        snprintf(fullPath, sizeof(fullPath), "%s/%s", path, entry->d_name);
+        if (stat(fullPath, &statbuf) == -1) {
+            continue;
+        }
+        if (S_ISDIR(statbuf.st_mode)) {
+            totalSize += calculateFolderSize(fullPath);
+        } else {
+            totalSize += statbuf.st_size;
+        }
+    }
+    closedir(dir);
+    return totalSize;
+}
 static char* wide_to_utf8(const wchar_t* wide_str) {
     if (!wide_str) return NULL;
     size_t size = wcstombs(NULL, wide_str, 0);
@@ -41,7 +69,6 @@ static char* wide_to_utf8(const wchar_t* wide_str) {
     utf8_str[converted] = '\0';
     return utf8_str;
 }
-
 static int sendAll(int socket, const void *buffer, size_t length) {
     size_t sent = 0;
     while (sent < length) {
@@ -259,6 +286,10 @@ static void drawTitles() {
     printf(CONSOLE_ESC(9;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     for (int i = ((currentPage-1) * 29); i < ((currentPage) * 29); i++) {
         printf("%-70s\n", titleNames[i]);
+        if (totalApps > i){
+            printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+            printf("%*.2f MB\n", 9, titleSaveSize[i]);
+        }
         printf(CONSOLE_ESC(5C));
     }
     printf(CONSOLE_ESC(0m));
@@ -282,13 +313,20 @@ static void drawMultipleSelected() {
         for (int i = 0; i < arrayNum + 1; i++) {
             if (selectedTitles[i] == savedSelected){
                 printf(CONSOLE_ESC(48;5;32m));
-                printf("%-70s\n", titleNames[savedSelected - 1]);
+                printf("%-70s\n", titleNames[savedSelected-1]);
+                printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+                printf("%*.2f MB\n", 9, titleSaveSize[savedSelected-1]);
                 found = true;
                 break;
             }
         }
         if (found == false) {
-            printf("%-70s\n", titleNames[savedSelected - 1]);
+            printf("%-70s\n", titleNames[savedSelected-1]);
+            if (totalApps >= savedSelected){
+            printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+            printf("%*.2f MB\n", 9, titleSaveSize[savedSelected-1]);
+            }
+            
         }
         savedSelected += 1;
         printf(CONSOLE_ESC(0m));
@@ -302,14 +340,18 @@ static void drawSelected() {
     bool found = false;
     for (int i = 0; i < arrayNum + 1; i++) {
         if (selectedTitles[i] == selected){
-            printf(CONSOLE_ESC(48;5;26m));
+            printf(CONSOLE_ESC(48;5;26m));            
             printf("%-70s\n", titleNames[selected-1]);
+            printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+            printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
             found = true;
             break;
         }
     }
     if (found == false) {
         printf("%-70s\n", titleNames[selected-1]);
+        printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+        printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
     }
     printf(CONSOLE_ESC(0m));
 }
@@ -323,12 +365,16 @@ static void clearSelected() {
         if (selectedTitles[i] == selected){
             printf(CONSOLE_ESC(48;5;32m));
             printf("%-70s\n", titleNames[selected-1]);
+            printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+            printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
             found = true;
             break;
         }
     }
     if (found == false) {
         printf("%-70s\n", titleNames[selected-1]);
+        printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+        printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
     }
     printf(CONSOLE_ESC(0m));
 }
@@ -389,6 +435,9 @@ static void listTitles() {
             if (R_SUCCEEDED(rc)) { 
                 rc = fsdevMountSaveData("save", titleId, userAccounts[selectedUser]);
                 if (R_SUCCEEDED(rc)) {
+                    u64 sizeInBytes = calculateFolderSize("save:/");
+                    float size = (float)sizeInBytes / (1024.0f * 1024.0f);
+                    titleSaveSize[arrayNum] = size;
                     fsdevUnmountDevice("save");
                     totalApps += 1;
                     getTitleName(titleId, recordCount);
@@ -510,6 +559,13 @@ int push() {
     consoleUpdate(NULL);
     nsInitialize();
     listTitles();
+    if (arrayNum == 0){
+        printf(CONSOLE_ESC(0m));
+        clearTitles();
+        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
+        return 0;
+    }
     maxPages += arrayNum / 29;
     if (arrayNum % 29 == 0) {
         maxPages -= 1;
