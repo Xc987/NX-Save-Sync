@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <jansson.h>
 #include "main.h"
 #include "miniz.h"
 
@@ -215,20 +216,6 @@ static bool unzip(const char *zip_path, const char *extract_path) {
     consoleUpdate(NULL);
     return true;
 }
-static int getValue(const char *json, const char *key, char *value, size_t value_size) {
-    char search_str[64];
-    snprintf(search_str, sizeof(search_str), "\"%s\":\"", key);
-    const char *start = strstr(json, search_str);
-    if (!start) return 0;
-    start += strlen(search_str);
-    const char *end = strchr(start, '"');
-    if (!end) return 0;
-    size_t len = end - start;
-    if (len >= value_size) len = value_size - 1;
-    strncpy(value, start, len);
-    value[len] = '\0';
-    return 1;
-}
 static int downloadZip(char *host) {
     socketInitializeDefault();
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -379,22 +366,25 @@ int pull() {
         return 0;
     }
     Result rc = 0;
-    file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (file) {
-        char buffer[512];
-        size_t bytes_read = fread(buffer, 1, 512 - 1, file);
-        buffer[bytes_read] = '\0';
-        fclose(file);
-        char host[64];
-        if (getValue(buffer, "host", host, sizeof(host))) {
-            printf(CONSOLE_ESC(1C) "Connecting to host: %s\n", host);
-            consoleUpdate(NULL);
-            if (downloadZip(host) == 0) {
-                return 0;
-            }
+        json_error_t error;
+        json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+        if (!root) {
+            return 0;
         }
-    } else {
-        fclose(file);
+        json_t *host_val = json_object_get(root, "host");
+        if (!json_is_string(host_val)) {
+            json_decref(root);
+            return 0;
+        }
+        const char *host_str = json_string_value(host_val);
+        char *result = strdup(host_str);
+        json_decref(root);
+        printf(CONSOLE_ESC(1C) "Connecting to host: %s\n", result);
+        consoleUpdate(NULL);
+        if (downloadZip(result) == 0) {
+            return 0;
+        }
     }
     printf(CONSOLE_ESC(1C) "Unzipping temp.zip\n");
     consoleUpdate(NULL);

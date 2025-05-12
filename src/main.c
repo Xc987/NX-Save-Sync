@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <switch.h>
 #include <stdlib.h>
-#include <time.h>
+#include <jansson.h>
 #include "main.h"
 
 char userNames[256][100];
@@ -10,21 +10,7 @@ AccountUid userAccounts[12];
 int selectedUser = 0;
 s32 total_users = 0;
 
-static int getValue(const char *json, const char *key, char *value, size_t value_size) {
-    char search_str[64];
-    snprintf(search_str, sizeof(search_str), "\"%s\":\"", key);
-    const char *start = strstr(json, search_str);
-    if (!start) return 0;
-    start += strlen(search_str);
-    const char *end = strchr(start, '"');
-    if (!end) return 0;
-    size_t len = end - start;
-    if (len >= value_size) len = value_size - 1;
-    strncpy(value, start, len);
-    value[len] = '\0';
-    return 1;
-}
-static int checkConfig(){
+static int checkConfig() {
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (!file) {
         printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Config file doesnt exist!\n");
@@ -33,15 +19,21 @@ static int checkConfig(){
         return 0;
     }
     if (file) {
-        char buffer[512];
-        size_t bytes_read = fread(buffer, 1, 512 - 1, file);
-        buffer[bytes_read] = '\0';
-        fclose(file);
-        char host[64];
-        if (getValue(buffer, "host", host, sizeof(host))) {
-            printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Current PC IP: %s\n", host);
-            printf(CONSOLE_ESC(0m));
+        json_error_t error;
+        json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+        if (!root) {
+            return 0;
         }
+        json_t *host_val = json_object_get(root, "host");
+        if (!json_is_string(host_val)) {
+            json_decref(root);
+            return 0;
+        }
+        const char *host_str = json_string_value(host_val);
+        char *result = strdup(host_str);
+        json_decref(root);
+        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Current PC IP: %s\n", result);
+        printf(CONSOLE_ESC(0m));
     }
     fclose(file);
     return 1;
@@ -80,10 +72,12 @@ static void createConfig() {
             strcpy(inputText, "192.168.0.0");
         }
     }
-    FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
-    if (file) {
-        fprintf(file, "{\"host\":\"%s\"}", inputText);
-        fclose(file);
+    json_t *root = json_object();
+    json_object_set_new(root, "host", json_string(inputText));
+    FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+    if (fp) {
+        json_dumpf(root, fp, JSON_INDENT(4));
+        fclose(fp);
     }
 }
 static void getUsers() {
