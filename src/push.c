@@ -480,8 +480,14 @@ static void listTitles() {
         for (int i = 0; i < recordCount; i++) {
             u64 titleId = records[i].application_id;
             Result rc=0;
-            if (R_SUCCEEDED(rc)) { 
-                rc = fsdevMountSaveData("save", titleId, userAccounts[selectedUser]);
+            if (R_SUCCEEDED(rc)) {
+                if (total_users - selectedUser == 2) {
+                    rc = fsdevMountDeviceSaveData("save", titleId);
+                } else if (total_users - selectedUser == 1) {
+                    rc = fsdevMountBcatSaveData("save", titleId);
+                } else {
+                    rc = fsdevMountSaveData("save", titleId, userAccounts[selectedUser]);
+                }
                 if (R_SUCCEEDED(rc)) {
                     u64 sizeInBytes = calculateFolderSize("save:/");
                     float size = (float)sizeInBytes / (1024.0f * 1024.0f);
@@ -820,7 +826,13 @@ int push() {
         uint64_t application_id = hexToU64(pushingTID);
         if (R_SUCCEEDED(rc)) { 
             printf(CONSOLE_ESC(1C) "Mounting save:/\n");
-            rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
+            if (total_users - selectedUser == 2) {
+                rc = fsdevMountDeviceSaveData("save", application_id);
+            } else if (total_users - selectedUser == 1) {
+                rc = fsdevMountBcatSaveData("save", application_id);
+            } else {
+                rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
+            }
             if (R_FAILED(rc)) {
                 printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
                 return 0;

@@ -6,7 +6,7 @@
 #include "main.h"
 
 char userNames[256][100];
-AccountUid userAccounts[10];
+AccountUid userAccounts[12];
 int selectedUser = 0;
 s32 total_users = 0;
 
@@ -122,7 +122,7 @@ static void getUsers() {
     cleanup:
         accountExit();
 }
-int main(int argc, char **argv) {
+int main() {
     consoleInit(NULL);
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
@@ -130,6 +130,9 @@ int main(int argc, char **argv) {
     int returnValue = 0;
     int selected = 1;
     getUsers();
+    strcpy(userNames[total_users], "Device");
+    strcpy(userNames[total_users + 1], "BCAT");
+    total_users += 2;
     drawBorder();
     drawTabs(selected);
     printf(CONSOLE_ESC(1;2H) CONSOLE_ESC(38;5;255m) "NX-Save-Sync v2.1.0\n\n");
