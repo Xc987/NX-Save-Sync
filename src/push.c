@@ -241,7 +241,7 @@ static void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const c
             void *file_data = malloc(file_size);
             fread(file_data, 1, file_size, file);
             fclose(file);
-            if (mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_BEST_COMPRESSION)) {
+            if (mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_BEST_SPEED)) {
                 (*zipped_files)++;
                 printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C));
                 printf("Zipping sdmc:/temp/ folder - %d / %d (%.2f%%)\n", *zipped_files, total_files, ((float)*zipped_files / total_files) * 100);
@@ -536,7 +536,7 @@ static void copyFiles(const char *src, const char *dest, int *current, int total
                 FILE *src_file = fopen(src_path, "rb");
                 FILE *dest_file = fopen(dest_path, "wb");
                 if (src_file && dest_file) {
-                    char buffer[8192];
+                    char buffer[262144];
                     size_t bytes;
                     while ((bytes = fread(buffer, 1, sizeof(buffer), src_file)) > 0) {
                         fwrite(buffer, 1, bytes, dest_file);

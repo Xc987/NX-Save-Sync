@@ -128,7 +128,7 @@ static void moveSave(const char *src, const char *dest) {
                 FILE *src_file = fopen(src_path, "rb");
                 FILE *dest_file = fopen(dest_path, "wb");
                 if (src_file && dest_file) {
-                    char buffer[8192];
+                    char buffer[262144];
                     size_t bytes;
                     while ((bytes = fread(buffer, 1, sizeof(buffer), src_file)) > 0) {
                         fwrite(buffer, 1, bytes, dest_file);

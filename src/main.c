@@ -12,31 +12,51 @@ s32 total_users = 0;
 
 static int checkConfig() {
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
-    if (!file) {
-        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Config file doesnt exist!\n");
-        printf(CONSOLE_ESC(0m));
-        fclose(file);
+    json_error_t error;
+    json_t *root = json_loadf(file, 0, &error);
+    fclose(file);
+    if (!root) {
+        printf("Error parsing JSON on line %d: %s\n\n", error.line, error.text);
         return 0;
     }
-    if (file) {
-        json_error_t error;
-        json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
-        if (!root) {
-            return 0;
-        }
-        json_t *host_val = json_object_get(root, "host");
-        if (!json_is_string(host_val)) {
-            json_decref(root);
-            return 0;
-        }
-        const char *host_str = json_string_value(host_val);
-        char *result = strdup(host_str);
+    json_t *host_value = json_object_get(root, "host");
+    if (!host_value || !json_is_string(host_value)) {
         json_decref(root);
-        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Current PC IP: %s\n", result);
+        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "PC IP not set!\n");
         printf(CONSOLE_ESC(0m));
+        return 0;
     }
-    fclose(file);
+    const char *host = json_string_value(host_value);
+    printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Current PC IP: %s\n", host);
+    printf(CONSOLE_ESC(0m));
+    json_decref(root);
     return 1;
+}
+static bool checkDeletePush() {
+    json_error_t error;
+    json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+    if (!root) {
+        printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+        return false;
+    }
+    json_t *del_val = json_object_get(root, "delete_after_push");
+    bool result = json_is_true(del_val);
+
+    json_decref(root);
+    return result;
+}
+static bool checkDeletePull() {
+    json_error_t error;
+    json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+    if (!root) {
+        printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+        return false;
+    }
+    json_t *del_val = json_object_get(root, "delete_after_pull");
+    bool result = json_is_true(del_val);
+
+    json_decref(root);
+    return result;
 }
 static void drawSelected(int selected) {
     printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "                                                                           \n" CONSOLE_ESC(0m));
@@ -46,12 +66,42 @@ static void drawSelected(int selected) {
     } else if (selected == 2) {
         printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch\n" CONSOLE_ESC(0m));
         printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Connect to PC                                                                 \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(10;2H) "                                                                              \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(11;2H) "                                                                              \n" CONSOLE_ESC(0m));
     } else if (selected == 3) {
         if (checkConfig() == 0) {
-            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                  \n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
         } else {
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
-        }        
+        }
+        bool pushvalue = checkDeletePush();
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pushing: %s                                        \n", pushvalue?"true ":"false" CONSOLE_ESC(0m));
+        bool pullvalue = checkDeletePull();
+        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pulling: %s                                        \n", pullvalue?"true ":"false"  CONSOLE_ESC(0m));
+    } else if (selected == 4) {
+        if (checkConfig() == 0) {
+            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
+        } else {
+            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
+        }
+        bool pushvalue = checkDeletePush();
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Delete temp files after pushing: %s                                        \n", pushvalue?"true ":"false");
+        printf(CONSOLE_ESC(0m));
+        bool pullvalue = checkDeletePull();
+        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pulling: %s                                        \n", pullvalue?"true ":"false");
+        printf(CONSOLE_ESC(0m));
+    } else if (selected == 5) {
+        if (checkConfig() == 0) {
+            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
+        } else {
+            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
+        }
+        bool pushvalue = checkDeletePush();
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pushing: %s                                        \n", pushvalue?"true ":"false");
+        printf(CONSOLE_ESC(0m));
+        bool pullvalue = checkDeletePull();
+        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Delete temp files after pulling: %s                                        \n", pullvalue?"true ":"false");
+        printf(CONSOLE_ESC(0m));
     }
 }
 static void createConfig() {
@@ -72,12 +122,21 @@ static void createConfig() {
             strcpy(inputText, "192.168.0.0");
         }
     }
-    json_t *root = json_object();
-    json_object_set_new(root, "host", json_string(inputText));
-    FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
-    if (fp) {
-        json_dumpf(root, fp, JSON_INDENT(4));
-        fclose(fp);
+    json_t *root = NULL;
+    json_error_t error;
+    FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
+    root = json_loadf(file, 0, &error);
+    fclose(file);
+    if (!root) {
+        printf("Failed to parse JSON: %s\n", error.text);
+    } else {
+        json_object_set_new(root, "host", json_string(inputText));
+        FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+        if (fp) {
+            json_dumpf(root, fp, JSON_INDENT(4));
+            fclose(fp);
+        }
+        json_decref(root);
     }
 }
 static void getUsers() {
@@ -121,6 +180,20 @@ int main() {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
     padInitializeDefault(&pad);
+    FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
+    if (!file) {
+        fclose(file);
+        json_t *root = json_object();
+        json_object_set_new(root, "delete_after_push", json_true());
+        json_object_set_new(root, "delete_after_pull", json_true());
+        FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+        if (fp) {
+            json_dumpf(root, fp, JSON_INDENT(4));
+            fclose(fp);
+        }
+    } else {
+        fclose(file);
+    }
     int returnValue = 0;
     int selected = 1;
     getUsers();
@@ -158,16 +231,33 @@ int main() {
             break;
         }
         if (kDown & HidNpadButton_AnyLeft) {
-            if (selected != 1) {
-                selected -= 1;
+            if (selected > 1) {
+                if (selected == 4 || selected == 5) {
+                    selected = 2;
+                } else {
+                    selected -= 1;
+                }
+                
                 drawTabs(selected);
                 drawSelected(selected);
             }
         }
         if (kDown & HidNpadButton_AnyRight) {
-            if (selected != 3) {
+            if (selected < 3) {
                 selected += 1;
                 drawTabs(selected);
+                drawSelected(selected);
+            }
+        }
+        if (kDown & HidNpadButton_AnyDown) {
+            if (selected != 5 && selected >= 3) {
+                selected += 1;
+                drawSelected(selected);
+            }
+        }
+        if (kDown & HidNpadButton_AnyUp) {
+            if (selected != 3  && selected >= 3) {
+                selected -= 1;
                 drawSelected(selected);
             }
         }
@@ -196,6 +286,52 @@ int main() {
                 break;
             } else if (selected == 3) {
                 createConfig();
+                drawSelected(selected);
+            } else if (selected == 4) {
+                json_t *root = NULL;
+                json_error_t error;
+                FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
+                root = json_loadf(file, 0, &error);
+                fclose(file);
+                if (!root) {
+                    printf("Failed to parse JSON: %s\n", error.text);
+                } else {
+                    if (checkDeletePush() == true) {
+                        json_object_set_new(root, "delete_after_push", json_false());
+                        
+                    } else {
+                        json_object_set_new(root, "delete_after_push", json_true());
+                    }
+                    FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+                    if (fp) {
+                        json_dumpf(root, fp, JSON_INDENT(4));
+                        fclose(fp);
+                    }
+                    json_decref(root);
+                }
+                drawSelected(selected);
+            } else if (selected == 5) {
+                json_t *root = NULL;
+                json_error_t error;
+                FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
+                root = json_loadf(file, 0, &error);
+                fclose(file);
+                if (!root) {
+                    printf("Failed to parse JSON: %s\n", error.text);
+                } else {
+                    if (checkDeletePull() == true) {
+                        json_object_set_new(root, "delete_after_pull", json_false());
+                        
+                    } else {
+                        json_object_set_new(root, "delete_after_pull", json_true());
+                    }
+                    FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+                    if (fp) {
+                        json_dumpf(root, fp, JSON_INDENT(4));
+                        fclose(fp);
+                    }
+                    json_decref(root);
+                }
                 drawSelected(selected);
             }
         }
