@@ -286,9 +286,16 @@ static void drawTitles() {
     printf(CONSOLE_ESC(9;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     for (int i = ((currentPage-1) * 29); i < ((currentPage) * 29); i++) {
         printf("%-70s\n", titleNames[i]);
-        if (totalApps > i){
+        if (totalApps > i) {
             printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
-            printf("%*.2f MB\n", 9, titleSaveSize[i]);
+            if (titleSaveSize[i] > 0.1f) {
+                printf("%*.2f MB\n", 9, titleSaveSize[i]);
+            } else if (titleSaveSize[i] * (1024.0f * 1024.0f) > 0.1f) {
+                printf("%*.2f KB\n", 9, titleSaveSize[i] * 1024.0f);
+            } else {
+                printf(CONSOLE_ESC(2C));
+                printf("%*s\n", 9, "empty save");
+            }
         }
         printf(CONSOLE_ESC(5C));
     }
@@ -315,7 +322,14 @@ static void drawMultipleSelected() {
                 printf(CONSOLE_ESC(48;5;32m));
                 printf("%-70s\n", titleNames[savedSelected-1]);
                 printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
-                printf("%*.2f MB\n", 9, titleSaveSize[savedSelected-1]);
+                if (titleSaveSize[savedSelected-1] > 0.1f) {
+                    printf("%*.2f MB\n", 9, titleSaveSize[savedSelected-1]);
+                } else if (titleSaveSize[savedSelected-1] * (1024.0f * 1024.0f) > 0.1f) {
+                    printf("%*.2f KB\n", 9, titleSaveSize[savedSelected-1] * 1024.0f);
+                } else {
+                    printf(CONSOLE_ESC(2C));
+                    printf("%*s\n", 9, "empty save");
+                }
                 found = true;
                 break;
             }
@@ -323,10 +337,16 @@ static void drawMultipleSelected() {
         if (found == false) {
             printf("%-70s\n", titleNames[savedSelected-1]);
             if (totalApps >= savedSelected){
-            printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
-            printf("%*.2f MB\n", 9, titleSaveSize[savedSelected-1]);
+                printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
+                if (titleSaveSize[savedSelected-1] > 0.1f) {
+                    printf("%*.2f MB\n", 9, titleSaveSize[savedSelected-1]);
+                } else if (titleSaveSize[savedSelected-1] * (1024.0f * 1024.0f) > 0.1f) {
+                    printf("%*.2f KB\n", 9, titleSaveSize[savedSelected-1] * 1024.0f);
+                } else {
+                    printf(CONSOLE_ESC(2C));
+                    printf("%*s\n", 9, "empty save");
+                }
             }
-            
         }
         savedSelected += 1;
         printf(CONSOLE_ESC(0m));
@@ -343,7 +363,14 @@ static void drawSelected() {
             printf(CONSOLE_ESC(48;5;26m));            
             printf("%-70s\n", titleNames[selected-1]);
             printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
-            printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+            if (titleSaveSize[selected-1] > 0.1f) {
+                printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+            } else if (titleSaveSize[selected-1] * (1024.0f * 1024.0f) > 0.1f) {
+                printf("%*.2f KB\n", 9, titleSaveSize[selected-1] * 1024.0f);
+            } else {
+                printf(CONSOLE_ESC(2C));
+                printf("%*s\n", 9, "empty save");
+            }
             found = true;
             break;
         }
@@ -351,7 +378,14 @@ static void drawSelected() {
     if (found == false) {
         printf("%-70s\n", titleNames[selected-1]);
         printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
-        printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+        if (titleSaveSize[selected-1] > 0.1f) {
+            printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+        } else if (titleSaveSize[selected-1] * (1024.0f * 1024.0f) > 0.1f) {
+            printf("%*.2f KB\n", 9, titleSaveSize[selected-1] * 1024.0f);
+        } else {
+            printf(CONSOLE_ESC(2C));
+            printf("%*s\n", 9, "empty save");
+        }
     }
     printf(CONSOLE_ESC(0m));
 }
@@ -366,7 +400,14 @@ static void clearSelected() {
             printf(CONSOLE_ESC(48;5;32m));
             printf("%-70s\n", titleNames[selected-1]);
             printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
-            printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+            if (titleSaveSize[selected-1] > 0.1f) {
+                printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+            } else if (titleSaveSize[selected-1] * (1024.0f * 1024.0f) > 0.1f) {
+                printf("%*.2f KB\n", 9, titleSaveSize[selected-1] * 1024.0f);
+            } else {
+                printf(CONSOLE_ESC(2C));
+                printf("%*s\n", 9, "empty save");
+            }
             found = true;
             break;
         }
@@ -374,7 +415,14 @@ static void clearSelected() {
     if (found == false) {
         printf("%-70s\n", titleNames[selected-1]);
         printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
-        printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+        if (titleSaveSize[selected-1] > 0.1f) {
+            printf("%*.2f MB\n", 9, titleSaveSize[selected-1]);
+        } else if (titleSaveSize[selected-1] * (1024.0f * 1024.0f) > 0.1f) {
+            printf("%*.2f KB\n", 9, titleSaveSize[selected-1] * 1024.0f);
+        } else {
+            printf(CONSOLE_ESC(2C));
+            printf("%*s\n", 9, "empty save");
+        }
     }
     printf(CONSOLE_ESC(0m));
 }
