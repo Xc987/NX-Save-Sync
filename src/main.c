@@ -32,27 +32,14 @@ static int checkConfig() {
     json_decref(root);
     return 1;
 }
-static bool checkDeletePush() {
+static bool getKeyValue(char* key) {
     json_error_t error;
     json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
     if (!root) {
         printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
         return false;
     }
-    json_t *del_val = json_object_get(root, "delete_after_push");
-    bool result = json_is_true(del_val);
-
-    json_decref(root);
-    return result;
-}
-static bool checkDeletePull() {
-    json_error_t error;
-    json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
-    if (!root) {
-        printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
-        return false;
-    }
-    json_t *del_val = json_object_get(root, "delete_after_pull");
+    json_t *del_val = json_object_get(root, key);
     bool result = json_is_true(del_val);
 
     json_decref(root);
@@ -74,21 +61,21 @@ static void drawSelected(int selected) {
         } else {
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
         }
-        bool pushvalue = checkDeletePush();
-        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pushing: %s                                        \n", pushvalue?"true ":"false" CONSOLE_ESC(0m));
-        bool pullvalue = checkDeletePull();
-        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pulling: %s                                        \n", pullvalue?"true ":"false"  CONSOLE_ESC(0m));
+        bool pushvalue = getKeyValue("compression");
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No " CONSOLE_ESC(0m));
+        bool pullvalue = getKeyValue("keep");
+        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Keep temp files after push / pull: %s                                        \n", pullvalue?"Yes":"No "  CONSOLE_ESC(0m));
     } else if (selected == 4) {
         if (checkConfig() == 0) {
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
         } else {
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
         }
-        bool pushvalue = checkDeletePush();
-        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Delete temp files after pushing: %s                                        \n", pushvalue?"true ":"false");
+        bool pushvalue = getKeyValue("compression");
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
         printf(CONSOLE_ESC(0m));
-        bool pullvalue = checkDeletePull();
-        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pulling: %s                                        \n", pullvalue?"true ":"false");
+        bool pullvalue = getKeyValue("keep");
+        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Keep temp files after push / pull: %s                                        \n", pullvalue?"Yes":"No ");
         printf(CONSOLE_ESC(0m));
     } else if (selected == 5) {
         if (checkConfig() == 0) {
@@ -96,11 +83,11 @@ static void drawSelected(int selected) {
         } else {
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
         }
-        bool pushvalue = checkDeletePush();
-        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Delete temp files after pushing: %s                                        \n", pushvalue?"true ":"false");
+        bool pushvalue = getKeyValue("compression");
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
         printf(CONSOLE_ESC(0m));
-        bool pullvalue = checkDeletePull();
-        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Delete temp files after pulling: %s                                        \n", pullvalue?"true ":"false");
+        bool pullvalue = getKeyValue("keep");
+        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Keep temp files after push / pull: %s                                        \n", pullvalue?"Yes":"No ");
         printf(CONSOLE_ESC(0m));
     }
 }
@@ -184,8 +171,8 @@ int main() {
     if (!file) {
         fclose(file);
         json_t *root = json_object();
-        json_object_set_new(root, "delete_after_push", json_true());
-        json_object_set_new(root, "delete_after_pull", json_true());
+        json_object_set_new(root, "compression", json_true());
+        json_object_set_new(root, "keep", json_false());
         FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
         if (fp) {
             json_dumpf(root, fp, JSON_INDENT(4));
@@ -296,11 +283,11 @@ int main() {
                 if (!root) {
                     printf("Failed to parse JSON: %s\n", error.text);
                 } else {
-                    if (checkDeletePush() == true) {
-                        json_object_set_new(root, "delete_after_push", json_false());
+                    if (getKeyValue("compression") == true) {
+                        json_object_set_new(root, "compression", json_false());
                         
                     } else {
-                        json_object_set_new(root, "delete_after_push", json_true());
+                        json_object_set_new(root, "compression", json_true());
                     }
                     FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
                     if (fp) {
@@ -319,11 +306,11 @@ int main() {
                 if (!root) {
                     printf("Failed to parse JSON: %s\n", error.text);
                 } else {
-                    if (checkDeletePull() == true) {
-                        json_object_set_new(root, "delete_after_pull", json_false());
+                    if (getKeyValue("keep") == true) {
+                        json_object_set_new(root, "keep", json_false());
                         
                     } else {
-                        json_object_set_new(root, "delete_after_pull", json_true());
+                        json_object_set_new(root, "keep", json_true());
                     }
                     FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
                     if (fp) {

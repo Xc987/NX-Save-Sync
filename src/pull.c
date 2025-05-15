@@ -12,6 +12,19 @@
 #include "main.h"
 #include "miniz.h"
 
+static bool getKeyValue(char* key) {
+    json_error_t error;
+    json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+    if (!root) {
+        printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+        return false;
+    }
+    json_t *del_val = json_object_get(root, key);
+    bool result = json_is_true(del_val);
+
+    json_decref(root);
+    return result;
+}
 static void removeDir(const char *path) {
     DIR *dir = opendir(path);
     if (dir == NULL) {
@@ -306,12 +319,14 @@ static int downloadZip(char *host) {
     return 1;
 }
 static void cleanUp() {
-    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
-    consoleUpdate(NULL);
-    remove("sdmc:/temp.zip");
-    printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
-    removeDir("sdmc:/temp/");
+    if (getKeyValue("keep") == false) {
+        printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
+        consoleUpdate(NULL);
+        remove("sdmc:/temp.zip");
+        printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
+        consoleUpdate(NULL);
+        removeDir("sdmc:/temp/");
+    }
 }
 static void getTitleName(u64 title) {
     Result rc=0;

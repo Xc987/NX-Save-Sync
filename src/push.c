@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <wchar.h>
 #include <locale.h>
+#include <jansson.h>
 #include "main.h"
 #include "miniz.h"
 
@@ -28,6 +29,19 @@ static int selectedInPage = 1;
 static char *pushingTitle = 0;
 static char *pushingTID = 0;
 
+static bool getKeyValue(char* key) {
+    json_error_t error;
+    json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+    if (!root) {
+        printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+        return false;
+    }
+    json_t *del_val = json_object_get(root, key);
+    bool result = json_is_true(del_val);
+
+    json_decref(root);
+    return result;
+}
 static u64 calculateFolderSize(const char *path) {
     u64 totalSize = 0;
     DIR *dir;
@@ -241,14 +255,26 @@ static void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const c
             void *file_data = malloc(file_size);
             fread(file_data, 1, file_size, file);
             fclose(file);
-            if (mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_BEST_SPEED)) {
-                (*zipped_files)++;
-                printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C));
-                printf("Zipping sdmc:/temp/ folder - %d / %d (%.2f%%)\n", *zipped_files, total_files, ((float)*zipped_files / total_files) * 100);
-                consoleUpdate(NULL);
+            if (getKeyValue("compression") == true) {
+                if (mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_BEST_SPEED)) {
+                    (*zipped_files)++;
+                    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C));
+                    printf("Zipping sdmc:/temp/ folder - %d / %d (%.2f%%)\n", *zipped_files, total_files, ((float)*zipped_files / total_files) * 100);
+                    consoleUpdate(NULL);
+                } else {
+                    printf(CONSOLE_ESC(1C) "\nFailed to add file to zip: %s\n", entry->d_name);
+                }
             } else {
-                printf(CONSOLE_ESC(1C) "\nFailed to add file to zip: %s\n", entry->d_name);
+                if (mz_zip_writer_add_mem(zip_archive, zip_path, file_data, file_size, MZ_NO_COMPRESSION)) {
+                    (*zipped_files)++;
+                    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C));
+                    printf("Zipping sdmc:/temp/ folder - %d / %d (%.2f%%)\n", *zipped_files, total_files, ((float)*zipped_files / total_files) * 100);
+                    consoleUpdate(NULL);
+                } else {
+                    printf(CONSOLE_ESC(1C) "\nFailed to add file to zip: %s\n", entry->d_name);
+                }
             }
+            
             free(file_data);
         }
     }
@@ -597,12 +623,14 @@ static void removeDir(const char *path) {
     }
 }
 static void cleanUp() {
-    printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
-    consoleUpdate(NULL);
-    remove("sdmc:/temp.zip");
-    printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
-    consoleUpdate(NULL);
-    removeDir("sdmc:/temp/");
+    if (getKeyValue("keep") == false) {
+        printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
+        consoleUpdate(NULL);
+        remove("sdmc:/temp.zip");
+        printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
+        consoleUpdate(NULL);
+        removeDir("sdmc:/temp/");
+    }
 }
 int push() {
     setlocale(LC_ALL, "en_US.UTF-8");
