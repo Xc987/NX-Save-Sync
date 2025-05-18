@@ -592,7 +592,6 @@ def changeSelection(sender, app_data, user_data):
 def selectAllTitles():
     global selected_items
     selected_items = set(titles)
-    print(selected_items)
     push()
 
 def selectTitle():
@@ -683,7 +682,6 @@ def pull():
                     if len(titleName) >= 1:
                         shutil.rmtree(titleFile)
                     if not subFolder in data:
-                        print(titleName)
                         printToWidget(f"Please enter the emulator save directory for {titleName}\n")
                         emuPath = inputStringPath(titleName)
                         with open(configFile, 'r') as file:

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <jansson.h>
 #include "main.h"
+#include "util.h"
 
 char userNames[256][100];
 AccountUid userAccounts[12];
@@ -32,19 +33,6 @@ static int checkConfig() {
     json_decref(root);
     return 1;
 }
-static bool getKeyValue(char* key) {
-    json_error_t error;
-    json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
-    if (!root) {
-        printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
-        return false;
-    }
-    json_t *del_val = json_object_get(root, key);
-    bool result = json_is_true(del_val);
-
-    json_decref(root);
-    return result;
-}
 static void drawSelected(int selected) {
     printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "                                                                           \n" CONSOLE_ESC(0m));
     if (selected == 1) {
@@ -54,7 +42,6 @@ static void drawSelected(int selected) {
         printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch\n" CONSOLE_ESC(0m));
         printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Connect to PC                                                                 \n" CONSOLE_ESC(0m));
         printf(CONSOLE_ESC(10;2H) "                                                                              \n" CONSOLE_ESC(0m));
-        printf(CONSOLE_ESC(11;2H) "                                                                              \n" CONSOLE_ESC(0m));
     } else if (selected == 3) {
         if (checkConfig() == 0) {
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
@@ -63,8 +50,6 @@ static void drawSelected(int selected) {
         }
         bool pushvalue = getKeyValue("compression");
         printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No " CONSOLE_ESC(0m));
-        bool pullvalue = getKeyValue("keep");
-        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Keep temp files after push / pull: %s                                        \n", pullvalue?"Yes":"No "  CONSOLE_ESC(0m));
     } else if (selected == 4) {
         if (checkConfig() == 0) {
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
@@ -73,9 +58,6 @@ static void drawSelected(int selected) {
         }
         bool pushvalue = getKeyValue("compression");
         printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
-        printf(CONSOLE_ESC(0m));
-        bool pullvalue = getKeyValue("keep");
-        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Keep temp files after push / pull: %s                                        \n", pullvalue?"Yes":"No ");
         printf(CONSOLE_ESC(0m));
     } else if (selected == 5) {
         if (checkConfig() == 0) {
@@ -86,14 +68,26 @@ static void drawSelected(int selected) {
         bool pushvalue = getKeyValue("compression");
         printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
         printf(CONSOLE_ESC(0m));
-        bool pullvalue = getKeyValue("keep");
-        printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Keep temp files after push / pull: %s                                        \n", pullvalue?"Yes":"No ");
-        printf(CONSOLE_ESC(0m));
     }
 }
 static void createConfig() {
     SwkbdConfig keyboard;
     char inputText[16] = {0};
+    if (checkConfig() == 0) {
+        strcpy(inputText, "192.168.0.0");
+    } else {
+        json_error_t error;
+        json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+        if (!root) {
+            printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+            strcpy(inputText, "192.168.0.0");
+        }
+        json_t *host_value_json = json_object_get(root, "host");
+        const char *host_str = json_string_value(host_value_json);
+        strncpy(inputText, host_str, sizeof(inputText) - 1);
+        inputText[sizeof(inputText) - 1] = '\0'; 
+        json_decref(root);
+    }
     Result rc = 0;
     rc = swkbdCreate(&keyboard, 0);
     if (R_SUCCEEDED(rc)) {
@@ -162,6 +156,13 @@ static void getUsers() {
     cleanup:
         accountExit();
 }
+void clearLog() {
+    printf(CONSOLE_ESC(10;2H));
+    for (int i = 0; i < 20; i++) {
+        printf("                                                                  \n");
+        printf(CONSOLE_ESC(1C));
+    }
+}
 int main() {
     consoleInit(NULL);
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
@@ -172,7 +173,6 @@ int main() {
         fclose(file);
         json_t *root = json_object();
         json_object_set_new(root, "compression", json_true());
-        json_object_set_new(root, "keep", json_false());
         FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
         if (fp) {
             json_dumpf(root, fp, JSON_INDENT(4));
@@ -214,19 +214,18 @@ int main() {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
         if (kDown & HidNpadButton_Plus) {
-            returnValue = 3;
             break;
         }
         if (kDown & HidNpadButton_AnyLeft) {
             if (selected > 1) {
-                if (selected == 4 || selected == 5) {
+                if (selected == 4) {
                     selected = 2;
                 } else {
                     selected -= 1;
                 }
-                
                 drawTabs(selected);
                 drawSelected(selected);
+                clearLog();
             }
         }
         if (kDown & HidNpadButton_AnyRight) {
@@ -234,10 +233,11 @@ int main() {
                 selected += 1;
                 drawTabs(selected);
                 drawSelected(selected);
+                clearLog();
             }
         }
         if (kDown & HidNpadButton_AnyDown) {
-            if (selected != 5 && selected >= 3) {
+            if (selected != 4 && selected >= 3) {
                 selected += 1;
                 drawSelected(selected);
             }
@@ -267,10 +267,26 @@ int main() {
         if (kDown & HidNpadButton_A) {
             if (selected == 1) {
                 returnValue = push();
-                break;
+                printf("\n");
+                if (returnValue == 0) {
+                    printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
+                } else if (returnValue == 1) {
+                    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
+                } else if (returnValue == 2) {
+                    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "Process was aborted.\n" CONSOLE_ESC(0m));
+                    svcSleepThread(500000000);
+                }
             } else if (selected == 2) {
                 returnValue = pull();
-                break;
+                printf("\n");
+                if (returnValue == 0) {
+                    printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
+                } else if (returnValue == 1) {
+                    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
+                } else if (returnValue == 2) {
+                    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "Process was aborted.\n" CONSOLE_ESC(0m));
+                    svcSleepThread(500000000);
+                }
             } else if (selected == 3) {
                 createConfig();
                 drawSelected(selected);
@@ -297,52 +313,9 @@ int main() {
                     json_decref(root);
                 }
                 drawSelected(selected);
-            } else if (selected == 5) {
-                json_t *root = NULL;
-                json_error_t error;
-                FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
-                root = json_loadf(file, 0, &error);
-                fclose(file);
-                if (!root) {
-                    printf("Failed to parse JSON: %s\n", error.text);
-                } else {
-                    if (getKeyValue("keep") == true) {
-                        json_object_set_new(root, "keep", json_false());
-                        
-                    } else {
-                        json_object_set_new(root, "keep", json_true());
-                    }
-                    FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
-                    if (fp) {
-                        json_dumpf(root, fp, JSON_INDENT(4));
-                        fclose(fp);
-                    }
-                    json_decref(root);
-                }
-                drawSelected(selected);
             }
         }
         consoleUpdate(NULL);
-    }
-    printf("\n");
-    if (returnValue == 0) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
-    } else if (returnValue == 1) {
-        printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
-    } else if (returnValue == 2) {
-        printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "Process was aborted.\n" CONSOLE_ESC(0m));
-        svcSleepThread(500000000);
-    }
-    if (returnValue == 0 || returnValue == 1 || returnValue == 2) {
-        printf(CONSOLE_ESC(1C) CONSOLE_ESC(38;5;255m) "Press PLUS key to exit.\n" );
-        while(appletMainLoop()){
-            padUpdate(&pad);
-            u64 kDown = padGetButtonsDown(&pad);
-            if (kDown & HidNpadButton_Plus) {
-                break;
-            }
-            consoleUpdate(NULL);
-        }
     }
     consoleExit(NULL);
     return 0;

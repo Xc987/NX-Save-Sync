@@ -14,6 +14,7 @@
 #include <jansson.h>
 #include "main.h"
 #include "miniz.h"
+#include "util.h"
 
 static volatile bool shutdownRequested = false;
 static char titleNames[256][100];
@@ -29,19 +30,6 @@ static int selectedInPage = 1;
 static char *pushingTitle = 0;
 static char *pushingTID = 0;
 
-static bool getKeyValue(char* key) {
-    json_error_t error;
-    json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
-    if (!root) {
-        printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
-        return false;
-    }
-    json_t *del_val = json_object_get(root, key);
-    bool result = json_is_true(del_val);
-
-    json_decref(root);
-    return result;
-}
 static u64 calculateFolderSize(const char *path) {
     u64 totalSize = 0;
     DIR *dir;
@@ -208,25 +196,6 @@ static int startSend() {
     socketExit();
     return 1;
 }
-static int countFilesRec(const char *dir_path) {
-    DIR* dir = opendir(dir_path);
-    int count = 0;
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-        char file_path[PATH_MAX];
-        snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, entry->d_name);
-        if (entry->d_type == DT_DIR) {
-            count += countFilesRec(file_path);
-        } else if (entry->d_type == DT_REG) {
-            count++;
-        }
-    }
-    closedir(dir);
-    return count;
-}
 static void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const char *base_path, int *zipped_files, int total_files) {
     DIR* dir = opendir(dir_path);
     struct dirent* entry;
@@ -295,18 +264,6 @@ static void zipDir(const char *dir_path, const char *zip_path) {
     printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "                                                                      \n");
     printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
-}
-static uint64_t hexToU64(const char *str) {
-    uint64_t result = 0;
-    for (int i = 0; str[i] != '\0'; i++) {
-        char c = tolower(str[i]);
-        if (c >= '0' && c <= '9') {
-            result = (result << 4) | (c - '0');
-        } else if (c >= 'a' && c <= 'f') {
-            result = (result << 4) | (c - 'a' + 10);
-        }
-    }
-    return result;
 }
 static void drawTitles() {
     printf(CONSOLE_ESC(9;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
@@ -591,48 +548,71 @@ static void copySave(const char *src, const char *dest) {
     printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Exporting save data\n");
     consoleUpdate(NULL);
 }
-static void removeDir(const char *path) {
-    DIR *dir = opendir(path);
-    if (dir == NULL) {
-        perror("Error opening directory");
-        return;
+static bool isButtonHeld(PadState* pad, u64 button) {
+    u64 startTime = armGetSystemTick();
+    bool held = false;
+    while (padGetButtons(pad) & button) {
+        if (armGetSystemTick() - startTime > armGetSystemTickFreq() / 3) {
+            held = true;
+            break;
+        }
+        padUpdate(pad);
     }
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-        char full_path[1024];
-        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
-        struct stat statbuf;
-        if (lstat(full_path, &statbuf) == -1) {
-            perror("Error getting file status");
-            continue;
-        }
-        if (S_ISDIR(statbuf.st_mode)) {
-            removeDir(full_path);
-        } else {
-            if (remove(full_path) != 0) {
-                perror("Error removing file");
+    return held;
+}
+static void handleMovement(PadState* pad, bool isUp, int* selectedInPage, int* selected, int totalApps) {
+    bool held = isButtonHeld(pad, isUp ? HidNpadButton_AnyUp : HidNpadButton_AnyDown);
+    int minSel = 1;
+    int maxSelPage = 29;
+    if (held) {
+        while (padGetButtons(pad) & (isUp ? HidNpadButton_AnyUp : HidNpadButton_AnyDown)) {
+            if ((isUp && *selectedInPage != minSel) || (!isUp && *selectedInPage != maxSelPage && *selected != totalApps)) {
+                clearSelected();
+                *selectedInPage += isUp ? -1 : 1;
+                *selected += isUp ? -1 : 1;
+                drawSelected();
             }
+            svcSleepThread(30000000);
+            consoleUpdate(NULL);
+            padUpdate(pad);
         }
-    }
-    closedir(dir);
-    if (rmdir(path) != 0) {
-        perror("Error removing directory");
+    } else {
+        if ((isUp && *selectedInPage != minSel) || (!isUp && *selectedInPage != maxSelPage && *selected != totalApps)) {
+            clearSelected();
+            *selectedInPage += isUp ? -1 : 1;
+            *selected += isUp ? -1 : 1;
+            drawSelected();
+        }
     }
 }
-static void cleanUp() {
-    if (getKeyValue("keep") == false) {
-        printf(CONSOLE_ESC(1C) "Deleting sdmc:/temp.zip file\n");
-        consoleUpdate(NULL);
-        remove("sdmc:/temp.zip");
-        printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
-        consoleUpdate(NULL);
-        removeDir("sdmc:/temp/");
+void cleanUpVar(){
+    shutdownRequested = false;
+    for (int i = 0; i < 256; i++) {
+        memset(titleNames[i], 0, 100);
     }
+    for (int i = 0; i < 256; i++) {
+        memset(titleIDS[i], 0, 100);
+    }
+    for (int i = 0; i < 256; i++) {
+        titleSaveSize[i] = 0.0f;
+    }
+    totalApps = 0;
+    arrayNum = 0;
+    currentPage = 1;
+    maxPages = 1;
+    selected = 1;
+    for (int i = 0; i < 256; i++) {
+        selectedTitles[i] = 0;
+    }
+    selectedInPage = 1;
 }
 int push() {
+    printf(CONSOLE_ESC(10;2H));
+    for (int i = 0; i < 20; i++) {
+        printf("                                                                  \n");
+        printf(CONSOLE_ESC(1C));
+    }
+    printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     setlocale(LC_ALL, "en_US.UTF-8");
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     PadState pad;
@@ -646,6 +626,7 @@ int push() {
         clearTitles();
         printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
         printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
+        cleanUpVar();
         return 0;
     }
     maxPages += arrayNum / 29;
@@ -683,69 +664,14 @@ int push() {
             clearTitles();
             printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
+            cleanUpVar();
             return 2;
         }
         if (padGetButtonsDown(&pad) & HidNpadButton_AnyUp) {
-            u64 startTime = armGetSystemTick();
-            bool held = false;
-            while (padGetButtons(&pad) & HidNpadButton_AnyUp) {
-                if (armGetSystemTick() - startTime > armGetSystemTickFreq() / 3) {
-                    held = true;
-                    break;
-                }
-                padUpdate(&pad);
-            }
-            if (held) {
-                while (padGetButtons(&pad) & HidNpadButton_AnyUp) {
-                    if (selectedInPage != 1) {
-                        clearSelected();
-                        selectedInPage -= 1;
-                        selected -= 1;
-                        drawSelected();
-                    }
-                    svcSleepThread(30000000);
-                    consoleUpdate(NULL);
-                    padUpdate(&pad);
-                }
-            } else {
-                if (selectedInPage != 1) {
-                    clearSelected();
-                    selectedInPage -= 1;
-                    selected -= 1;
-                    drawSelected();
-                }
-            }
+            handleMovement(&pad, true, &selectedInPage, &selected, totalApps);
         }
         if (padGetButtonsDown(&pad) & HidNpadButton_AnyDown) {
-            u64 startTime = armGetSystemTick();
-            bool held = false;
-            while (padGetButtons(&pad) & HidNpadButton_AnyDown) {
-                if (armGetSystemTick() - startTime > armGetSystemTickFreq() / 3) {
-                    held = true;
-                    break;
-                }
-                padUpdate(&pad);
-            }
-            if (held) {
-                while (padGetButtons(&pad) & HidNpadButton_AnyDown) {
-                    if (selectedInPage != 29 && selected != totalApps) {
-                        clearSelected();
-                        selectedInPage += 1;
-                        selected += 1;
-                        drawSelected();
-                    }
-                    svcSleepThread(30000000);
-                    consoleUpdate(NULL);
-                    padUpdate(&pad);
-                }
-            } else {
-                if (selectedInPage != 29 && selected != totalApps) {
-                    clearSelected();
-                    selectedInPage += 1;
-                    selected += 1;
-                    drawSelected();
-                }
-            }
+            handleMovement(&pad, false, &selectedInPage, &selected, totalApps);
         }
         if (kDown & HidNpadButton_AnyLeft) {
             if (currentPage != 1) {
@@ -836,7 +762,7 @@ int push() {
     }
     nsExit();
     printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
-    printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n\n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     consoleUpdate(NULL);
     for (int i = 0; i < arrayNum; i++) {
@@ -863,6 +789,7 @@ int push() {
             }
             if (R_FAILED(rc)) {
                 printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
+                cleanUpVar();
                 return 0;
             }
         }
@@ -890,12 +817,14 @@ int push() {
             } else {
                 printf(CONSOLE_ESC(1C) "Failed to create title name file!\n");
                 cleanUp();
+                cleanUpVar();
                 return 0;
             }
             free(utf8_str);
         } else {
             printf(CONSOLE_ESC(1C) "Failed to convert string to UTF-8!\n");
             cleanUp();
+            cleanUpVar();
             return 0;
         }
     }
@@ -910,6 +839,7 @@ int push() {
         nifmExit();
         socketExit();
         cleanUp();
+        cleanUpVar();
         return 0;
     }
     NifmInternetConnectionStatus status;
@@ -919,6 +849,7 @@ int push() {
         nifmExit();
         socketExit();
         cleanUp();
+        cleanUpVar();
         return 0;
     }
     if (status == NifmInternetConnectionStatus_Connected) {
@@ -926,14 +857,17 @@ int push() {
         socketExit();
         if (startSend() == 0) {
             cleanUp();
+            cleanUpVar();
             return 0;
         }
     } else {
         printf(CONSOLE_ESC(1C) "Console is not connected to the internet!\n");
         socketExit();
         cleanUp();
+        cleanUpVar();
         return 0;
     }
     cleanUp();
+    cleanUpVar();
     return 1;
 }
