@@ -14,9 +14,9 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	src
+SOURCES		:=	src include/third_party/miniz
 DATA		:=	data
-INCLUDES	:=	include
+INCLUDES	:=	include include/third_party/miniz
 #ROMFS	:=	romfs
 APP_TITLE   := NX Save Sync
 APP_AUTHOR  := Xc98

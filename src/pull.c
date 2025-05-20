@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <jansson.h>
 #include "main.h"
 #include "miniz.h"
@@ -156,21 +157,58 @@ static bool unzip(const char *zip_path, const char *extract_path) {
     return true;
 }
 static int downloadZip(char *host) {
+    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    PadState pad;
+    padInitializeDefault(&pad);
     socketInitializeDefault();
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         printf(CONSOLE_ESC(1C) "Socket creation failed\n");
         return 0;
     }
+    int flags = fcntl(sock, F_GETFL, 0);
+    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
     inet_pton(AF_INET, host, &server_addr.sin_addr);
-    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+    int connect_result = connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if (connect_result < 0 && errno != EINPROGRESS) {
         printf(CONSOLE_ESC(1C) "Connection failed\n");
         close(sock);
         socketExit();
         return 0;
+    }
+    if (connect_result < 0) {
+        struct timeval tv;
+        fd_set fdset;
+        bool connecting = true;
+        while (connecting) {
+            FD_ZERO(&fdset);
+            FD_SET(sock, &fdset);
+            tv.tv_sec = 0;
+            tv.tv_usec = 10000;
+            padUpdate(&pad);
+            u64 kDown = padGetButtonsDown(&pad);
+            if (kDown & HidNpadButton_Plus) {
+                close(sock);
+                socketExit();
+                return 2;
+            }
+            if (select(sock + 1, NULL, &fdset, NULL, &tv) > 0) {
+                int error = 0;
+                socklen_t len = sizeof(error);
+                getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len);
+                if (error == 0) {
+                    connecting = false;
+                } else {
+                    printf(CONSOLE_ESC(1C) "Connection failed\n");
+                    close(sock);
+                    socketExit();
+                    return 0;
+                }
+            }
+        }
     }
     const char *request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
     if (send(sock, request, strlen(request), 0) < 0) {
@@ -179,7 +217,6 @@ static int downloadZip(char *host) {
         socketExit();
         return 0;
     }
-    char buffer[65536];
     FILE *file = fopen("sdmc:/temp.zip", "wb");
     if (!file) {
         printf(CONSOLE_ESC(1C) "Failed to create file\n");
@@ -189,43 +226,59 @@ static int downloadZip(char *host) {
     }
     printf(CONSOLE_ESC(1C) "Downloading temp.zip.\n");
     consoleUpdate(NULL);
+    char buffer[65536];
     int header_ended = 0;
     ssize_t bytes_received;
     size_t total_bytes_received = 0;
     size_t content_length = 0;
-    while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
-        if (!header_ended) {
-            char *header_end = strstr(buffer, "\r\n\r\n");
-            if (header_end) {
-                header_ended = 1;
-                size_t data_start = header_end - buffer + 4;
-                char *content_length_ptr = strstr(buffer, "Content-Length: ");
-                if (content_length_ptr) {
-                    content_length = strtoul(content_length_ptr + 16, NULL, 10);
-                }
-                if (bytes_received > data_start) {
-                    size_t data_bytes = bytes_received - data_start;
-                    fwrite(buffer + data_start, 1, data_bytes, file);
-                    total_bytes_received += data_bytes;
-                    if (content_length > 0) {
-                        double current_mb = (double)total_bytes_received / (1024 * 1024);
-                        double total_mb = (double)content_length / (1024 * 1024);
-                        printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip - %.2f / %.2f MB (%.2f%%)\n", current_mb, total_mb, ((float)current_mb / total_mb) * 100);
-                        consoleUpdate(NULL);
+    bool download_complete = false;
+    while (!download_complete) {
+        bytes_received = recv(sock, buffer, sizeof(buffer), 0);
+        if (bytes_received > 0) {
+            if (!header_ended) {
+                char *header_end = strstr(buffer, "\r\n\r\n");
+                if (header_end) {
+                    header_ended = 1;
+                    size_t data_start = header_end - buffer + 4;
+                    char *content_length_ptr = strstr(buffer, "Content-Length: ");
+                    if (content_length_ptr) {
+                        content_length = strtoul(content_length_ptr + 16, NULL, 10);
                     }
+                    if (bytes_received > data_start) {
+                        size_t data_bytes = bytes_received - data_start;
+                        fwrite(buffer + data_start, 1, data_bytes, file);
+                        total_bytes_received += data_bytes;
+                        if (content_length > 0) {
+                            double current_mb = (double)total_bytes_received / (1024 * 1024);
+                            double total_mb = (double)content_length / (1024 * 1024);
+                            printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip - %.2f / %.2f MB (%.2f%%)\n", current_mb, total_mb, (current_mb / total_mb) * 100);
+                            consoleUpdate(NULL);
+                        }
+                    }
+                    continue;
                 }
-                continue;
+            } else {
+                fwrite(buffer, 1, bytes_received, file);
+                total_bytes_received += bytes_received;
+                
+                if (content_length > 0) {
+                    double current_mb = (double)total_bytes_received / (1024 * 1024);
+                    double total_mb = (double)content_length / (1024 * 1024);
+                    printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip - %.2f / %.2f MB (%.2f%%)\n", current_mb, total_mb, (current_mb / total_mb) * 100);
+                    consoleUpdate(NULL);
+                }
             }
+        } else if (bytes_received == 0) {
+            download_complete = true;
+        } else if (errno == EWOULDBLOCK || errno == EAGAIN) {
+            continue;
         } else {
-            fwrite(buffer, 1, bytes_received, file);
-            total_bytes_received += bytes_received;
-            
-            if (content_length > 0) {
-                double current_mb = (double)total_bytes_received / (1024 * 1024);
-                double total_mb = (double)content_length / (1024 * 1024);
-                printf(CONSOLE_ESC(1A) CONSOLE_ESC(1C) "Downloading temp.zip - %.2f / %.2f MB\n", current_mb, total_mb);
-                consoleUpdate(NULL);
-            }
+            printf(CONSOLE_ESC(1C) "Download error occurred\n");
+            fclose(file);
+            close(sock);
+            remove("sdmc:/temp.zip");
+            socketExit();
+            return 0;
         }
     }
     fclose(file);
@@ -318,8 +371,19 @@ int pull() {
         json_decref(root);
         printf(CONSOLE_ESC(1C) "Connecting to host: %s\n", result);
         consoleUpdate(NULL);
-        if (downloadZip(result) == 0) {
+        int returnvalue = downloadZip(result);
+        if (returnvalue == 0) {
             return 0;
+        } else if (returnvalue == 2) {
+            while(true) {
+                padUpdate(&pad);
+                if (padGetButtons(&pad) & HidNpadButton_Plus) {
+                    svcSleepThread(100000);
+                } else {
+                    break;
+                }
+            }
+            return 2;
         }
     }
     printf(CONSOLE_ESC(1C) "Unzipping temp.zip\n");

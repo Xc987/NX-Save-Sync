@@ -12,6 +12,7 @@
 #include <wchar.h>
 #include <locale.h>
 #include <jansson.h>
+#include <errno.h>
 #include "main.h"
 #include "miniz.h"
 #include "util.h"
@@ -145,6 +146,9 @@ static void handleHttp(int client_socket) {
     close(client_socket);
 }
 static int startSend() {
+    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    PadState pad;
+    padInitializeDefault(&pad);
     socketInitializeDefault();
     u32 local_ip = gethostid();
     u32 correct_ip = __builtin_bswap32(local_ip);
@@ -180,20 +184,40 @@ static int startSend() {
     }
     printf(CONSOLE_ESC(1C) "Server is now running\n");
     consoleUpdate(NULL);
+    int flags = fcntl(server_socket, F_GETFL, 0);
+    fcntl(server_socket, F_SETFL, flags | O_NONBLOCK);
+    bool exitflag = false;
     while (!shutdownRequested) {
+        padUpdate(&pad);
+        u64 kDown = padGetButtonsDown(&pad);
+        if (kDown & HidNpadButton_Plus) {
+            shutdownRequested = true;
+            exitflag = true;
+            break;
+        }
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
         if (client_socket < 0) {
+            if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                usleep(100000);
+                continue;
+            }
             printf(CONSOLE_ESC(1C) "Failed to accept connection.\n");
             continue;
         }
+        // Set socket back to blocking mode for the HTTP handling
+        flags = fcntl(client_socket, F_GETFL, 0);
+        fcntl(client_socket, F_SETFL, flags & ~O_NONBLOCK);
         handleHttp(client_socket);
     }
     printf(CONSOLE_ESC(1C) "Shutting down server\n");
     consoleUpdate(NULL);
     close(server_socket);
     socketExit();
+    if (exitflag == true) {
+        return 2;
+    }
     return 1;
 }
 static void zipDirRec(mz_zip_archive *zip_archive, const char *dir_path, const char *base_path, int *zipped_files, int total_files) {
@@ -855,10 +879,23 @@ int push() {
     if (status == NifmInternetConnectionStatus_Connected) {
         nifmExit();
         socketExit();
-        if (startSend() == 0) {
+        int returnvalue = startSend();
+        if (returnvalue == 0) {
             cleanUp();
             cleanUpVar();
             return 0;
+        } else if (returnvalue == 2) {
+            while(true) {
+                padUpdate(&pad);
+                if (padGetButtons(&pad) & HidNpadButton_Plus) {
+                    svcSleepThread(100000);
+                } else {
+                    break;
+                }
+            }
+            cleanUp();
+            cleanUpVar();
+            return 2;
         }
     } else {
         printf(CONSOLE_ESC(1C) "Console is not connected to the internet!\n");

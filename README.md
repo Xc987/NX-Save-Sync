@@ -23,7 +23,7 @@ NX Save Sync is a switch homebrew app to quickly sync save files between switch 
 - In switch app, go to Pull tab and select "Connect to PC"
 - If no errors occured, the save file should be copied from pc to switch
 
-Note: During sync between switch and pc, both devices must be on the same network. Currently exiting from the switch app while pushing a save file or waiting for pc to host server is not possible, might be added in later release.
+Note: During sync between switch and pc, both devices must be on the same network.
 
 ## Screenshots
 
