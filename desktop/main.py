@@ -1,5 +1,7 @@
 import dearpygui.dearpygui as dpg
 from pathlib import Path
+from io import StringIO
+import traceback
 import urllib.request
 import socket
 import json
@@ -12,6 +14,7 @@ import keyboard
 import time
 import ctypes
 ctypes.windll.shcore.SetProcessDpiAwareness(2)
+output_buffer = StringIO()
 
 if getattr(sys, 'frozen', False):
     scriptDir = os.path.dirname(sys.executable)
@@ -29,6 +32,60 @@ keys = []
 paths = []
 server_thread = None
 themesel = 1
+
+class OutputWindow:
+    def __init__(self):
+        self.buffer = StringIO()
+        self.setup_redirection()
+        self.setup_exception_handler()
+        
+    def setup_redirection(self):
+        sys.stdout = self.OutputRedirector(self.buffer, self.update_window)
+        sys.stderr = self.OutputRedirector(self.buffer, self.update_window)
+    
+    def setup_exception_handler(self):
+        sys.excepthook = self.handle_exception
+    
+    class OutputRedirector:
+        def __init__(self, buffer, update_callback):
+            self.buffer = buffer
+            self.update_callback = update_callback
+            
+        def write(self, text):
+            self.buffer.write(text)
+            self.update_callback()
+            
+        def flush(self):
+            pass
+    
+    def handle_exception(self, exc_type, exc_value, exc_traceback):
+        exception_only = f"{exc_type.__name__}({exc_value.args[0]}, '{exc_value.args[1]}')" if exc_value.args else f"{exc_type.__name__}()"
+        traceback_text = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        full_output = f"{exception_only}\n\nTraceback:\n{traceback_text}"
+        self.buffer.write(full_output + "\n")
+        self.update_window()
+        sys.__stderr__.write(full_output + "\n")
+    
+    def update_window(self):
+        if dpg.does_item_exist("output_window"):
+            dpg.set_value("output_text", self.buffer.getvalue())
+    
+    def create_window(self):
+        if dpg.does_item_exist("output_window"):
+            dpg.focus_item("output_window")
+            return
+        with dpg.window(tag="output_window", label="Debug Output", width=300, height=250):
+            with dpg.menu_bar():
+                dpg.add_menu_item(label="Copy All", callback=lambda: dpg.set_clipboard_text(self.buffer.getvalue()))
+            with dpg.child_window(tag="output_scroll", height=-1):
+                dpg.add_input_text(tag="output_text", default_value=self.buffer.getvalue(), multiline=True, readonly=False, width=-1, height=-1, tab_input=True)
+    def show_context_menu(self):
+        if dpg.does_item_exist("output_text"):
+            with dpg.window(tag="context_menu", popup=True, no_title_bar=True, no_move=True):
+                dpg.add_menu_item(
+                    label="Copy All",
+                    callback=lambda: dpg.set_clipboard_text(self.buffer.getvalue())
+                )
 
 def checkConfig():
     appdataPath = os.getenv('LOCALAPPDATA')
@@ -369,8 +426,13 @@ def setTheme():
 
     dpg.bind_theme(appTheme)
 
+def button_callback(output_window):
+    output_window.create_window()
+    dpg.split_frame()
+
 def createWindow():
     global output_widget, output_widget2, themesel
+    output_window = OutputWindow()
     dpg.create_context()
     with dpg.font_registry():
         default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16*2)
@@ -413,7 +475,7 @@ def createWindow():
             json.dump({"theme": theme}, f, indent=4)
         themesel = 1
         setTheme()
-    with dpg.window(tag="Primary Window", label="Main Window", no_resize=True, no_collapse=True, no_close=True, no_move=True, width=800, height=600):
+    with dpg.window(tag="Primary Window", label="Main Window", no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=False, width=800, height=600):
         dpg.bind_font(default_font)
         dpg.set_global_font_scale(0.57)
         with dpg.tab_bar():
@@ -453,6 +515,7 @@ def createWindow():
                 else:
                     dpg.add_text("Switch IP not set!", tag="current_ip")
                     dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
+                dpg.add_button(label="Show debug", width=150, height=30, callback=lambda: button_callback(output_window))
                 configFile = checkConfig()
                 if configFile != 0:
                     with open(configFile, 'r') as file:
@@ -461,13 +524,21 @@ def createWindow():
                         if (theme == "dark"):
                             dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=True, callback=changeTheme)
                         elif (theme == "light"):
-                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=False, callback=changeTheme)  
+                            dpg.add_checkbox(label="Dark mode", tag="theme_toggle", default_value=False, callback=changeTheme)
     dpg.create_viewport(title='NX-Save-Sync', small_icon='include/icon.ico', large_icon='include/icon.ico', width=600, height=400, min_width=600, min_height=400, max_width=600, max_height=400)
     dpg.setup_dearpygui()
     dpg.show_viewport()
+    dpg.set_primary_window("Primary Window", True)
     dpg.start_dearpygui()
-    while dpg.is_dearpygui_running():
-        dpg.render_dearpygui_frame()
+    try:
+        while dpg.is_dearpygui_running():
+            dpg.render_dearpygui_frame()
+    except Exception as e:
+        output_window.handle_exception(type(e), e, e.__traceback__)
+    finally:
+        dpg.destroy_context()
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
     server = uploadZip()
     server.shutdown_flag.set()
     dpg.destroy_context()
