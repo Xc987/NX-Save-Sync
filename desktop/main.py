@@ -82,10 +82,7 @@ class OutputWindow:
     def show_context_menu(self):
         if dpg.does_item_exist("output_text"):
             with dpg.window(tag="context_menu", popup=True, no_title_bar=True, no_move=True):
-                dpg.add_menu_item(
-                    label="Copy All",
-                    callback=lambda: dpg.set_clipboard_text(self.buffer.getvalue())
-                )
+                dpg.add_menu_item(label="Copy All", callback=lambda: dpg.set_clipboard_text(self.buffer.getvalue()))
 
 def checkConfig():
     appdataPath = os.getenv('LOCALAPPDATA')
@@ -395,6 +392,7 @@ def setTheme():
         with dpg.theme() as appTheme:
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (240, 240, 240))
+                dpg.add_theme_color(dpg.mvThemeCol_MenuBarBg, (240, 240, 240))
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (255, 255, 255))
                 dpg.add_theme_color(dpg.mvThemeCol_Text, (30, 30, 30))
                 dpg.add_theme_color(dpg.mvThemeCol_Button, (180, 180, 180))
@@ -475,7 +473,7 @@ def createWindow():
             json.dump({"theme": theme}, f, indent=4)
         themesel = 1
         setTheme()
-    with dpg.window(tag="Primary Window", label="Main Window", no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=False, width=800, height=600):
+    with dpg.window(tag="Primary Window", label="Main Window", no_title_bar=True, no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=False, width=800, height=600):
         dpg.bind_font(default_font)
         dpg.set_global_font_scale(0.57)
         with dpg.tab_bar():
@@ -499,6 +497,10 @@ def createWindow():
                     dpg.add_button(label="List all titles", width=150, height=30, callback=listTitles, tag="list_titles_button")
                     dpg.add_text("No valid entries found in config.json!", tag="no_titles_warn")
                     dpg.hide_item("no_titles_warn")
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="Delete title", width=150, height=30, callback=deleteTitle, tag="list_titles_button2")
+                    dpg.add_text("No valid entries found in config.json!", tag="no_titles_warn2")
+                    dpg.hide_item("no_titles_warn2")
                 dpg.add_button(label="Add new title", width=150, height=30, callback=addTitle, tag="start_butt1on")
             with dpg.tab(label="Config"):
                 configFile = checkConfig()
@@ -572,6 +574,42 @@ def listTitles():
             dpg.add_text("All saved titles")
             with dpg.child_window(border=False):
                 dpg.add_listbox(tag="array_listbox",items=titles,num_items=10,width=-1)
+
+def on_listbox_select(sender, app_data, user_data):
+    global titles, keys, paths
+    selected_item = dpg.get_value(sender)
+    num = titles.index(selected_item)
+    configFile = checkConfig()
+    with open(configFile, 'r') as file:
+        data = json.load(file)
+    if keys[num] in data:
+        del data[keys[num]]
+    else:
+        print(f"Key '{keys[num]}' not found in the JSON file.")
+    json.dump(data, open(configFile,'w'), indent=4)
+    closeTitleWindow()
+
+def deleteTitle():
+    configFile = checkConfig()
+    if configFile == 0:
+        dpg.show_item(output_widget2)
+        return 0
+    with open(configFile, 'r') as file:
+        config = json.load(file)
+    for key, value in config.items():
+        if key != "host" and isinstance(value, list) and len(value) >= 2:
+            keys.append(key)
+            paths.append(value[0])
+            titles.append(value[1])
+    if not titles:
+        dpg.show_item("no_titles_warn2")
+        return 0
+    else:
+        dpg.hide_item("no_titles_warn2")
+        with dpg.window(tag="titles", label="Titles Window", on_close=closeTitleWindow, pos=(40, 50), no_resize=True, no_collapse=True, no_move=True, modal=True, width=500, height=275):
+            dpg.add_text("Select a title to delete")
+            with dpg.child_window(border=False):
+                dpg.add_listbox(tag="array_listbox",items=titles,num_items=10,width=-1, callback=on_listbox_select)
 
 def confirmWrite(tid_value, path_value, name_value):
     configFile = checkConfig()
