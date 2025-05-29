@@ -157,7 +157,7 @@ static void getUsers() {
         accountExit();
 }
 void clearLog() {
-    printf(CONSOLE_ESC(10;2H));
+    printf(CONSOLE_ESC(11;2H));
     for (int i = 0; i < 20; i++) {
         printf("                                                                  \n");
         printf(CONSOLE_ESC(1C));
