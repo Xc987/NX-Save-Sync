@@ -354,6 +354,25 @@ int pull() {
         printf(CONSOLE_ESC(1C) "PC IP not set!\n");
         return 0;
     }
+    while (true) {
+        padUpdate(&pad);
+        if (padGetButtons(&pad) & HidNpadButton_A || padGetButtons(&pad) & HidNpadButton_B) {
+            svcSleepThread(100000);
+        } else {
+            break;
+        }
+    }
+    checkTempZip();
+    while (true) {
+        padUpdate(&pad);
+        if (padGetButtons(&pad) & HidNpadButton_A || padGetButtons(&pad) & HidNpadButton_B) {
+            svcSleepThread(100000);
+        } else {
+            break;
+        }
+    }
+    checkTempFolder();
+    printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     Result rc = 0;
     if (file) {
         json_error_t error;

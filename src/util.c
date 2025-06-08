@@ -12,6 +12,7 @@
 #include <wchar.h>
 #include <locale.h>
 #include <jansson.h>
+#include "main.h"
 
 bool getKeyValue(char* key) {
     json_error_t error;
@@ -95,4 +96,66 @@ void cleanUp() {
     printf(CONSOLE_ESC(1C)"Deleting sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
     removeDir("sdmc:/temp/");
+}
+void checkTempZip() {
+    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    PadState pad;
+    padInitializeDefault(&pad);
+    if (access("sdmc:/temp.zip", F_OK) == 0) {
+        drawTempZipWarning();
+        printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+        printf(CONSOLE_ESC(21;31H) "   temp.zip found!");
+        printf(CONSOLE_ESC(23;31H) "A - Delete");
+        printf(CONSOLE_ESC(24;31H) "B - Keep");
+        consoleUpdate(NULL);
+        while(true) {
+            padUpdate(&pad);
+            if (padGetButtons(&pad) & HidNpadButton_A) {
+                remove("sdmc:/temp.zip");
+                break;
+            }
+            if (padGetButtons(&pad) & HidNpadButton_B) {
+                break;
+            }
+        }
+        printf(CONSOLE_ESC(0m) CONSOLE_ESC(21;31H));
+        printf(CONSOLE_ESC(20;30H));
+            for (int i = 0; i < 7; i++) {
+            printf("                      \n");
+            printf(CONSOLE_ESC(29C));
+        }
+        consoleUpdate(NULL);
+    }
+}
+void checkTempFolder() {
+    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    PadState pad;
+    padInitializeDefault(&pad);
+    DIR* dir = opendir("sdmc:/temp/");
+    if (dir) {
+        closedir(dir);
+        drawTempZipWarning();
+        printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+        printf(CONSOLE_ESC(21;31H) " temp folder found!");
+        printf(CONSOLE_ESC(23;31H) "A - Delete");
+        printf(CONSOLE_ESC(24;31H) "B - Keep");
+        consoleUpdate(NULL);
+        while(true) {
+            padUpdate(&pad);
+            if (padGetButtons(&pad) & HidNpadButton_A) {
+                removeDir("sdmc:/temp/");
+                break;
+            }
+            if (padGetButtons(&pad) & HidNpadButton_B) {
+                break;
+            }
+        }
+        printf(CONSOLE_ESC(0m) CONSOLE_ESC(21;31H));
+        printf(CONSOLE_ESC(20;30H));
+            for (int i = 0; i < 7; i++) {
+            printf("                      \n");
+            printf(CONSOLE_ESC(29C));
+        }
+        consoleUpdate(NULL);
+    }
 }

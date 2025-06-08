@@ -10,3 +10,4 @@ void drawBorder();
 void drawTabs(int selected);
 void drawAppMenu();
 void clearSelectedUser();
+void drawTempZipWarning();

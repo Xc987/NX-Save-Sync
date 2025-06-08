@@ -27,7 +27,6 @@ void drawBorder() {
     printf("%c",179);
     printf(CONSOLE_ESC(2;1H));
 }
-
 void drawTabs(int selected) {
     printf(CONSOLE_ESC(3;1H) CONSOLE_ESC(38;5;255m));
     printf(CONSOLE_ESC(1C) "%s","                                                                              \n");
@@ -102,7 +101,6 @@ void drawTabs(int selected) {
     printf(CONSOLE_ESC(4;63H));
     printf("%s","Config");
 }
-
 void drawAppMenu() {
     printf(CONSOLE_ESC(48;5;237m));
     printf(CONSOLE_ESC(6;5H));
@@ -138,4 +136,34 @@ void clearSelectedUser() {
     for (int i = 0; i < 25; i++) {
         printf("%c",196);
     }
+}
+void drawTempZipWarning() {
+    printf(CONSOLE_ESC(48;5;237m));
+    printf(CONSOLE_ESC(20;30H));
+    printf("%c",201);
+    for (int i = 0; i < 20; i++) {
+        printf("%c",205);
+    }
+    printf("%c",187);
+    printf(CONSOLE_ESC(21;30H));
+    for (int i = 0; i < 5; i++) {
+        printf("%c\n",186);
+        printf(CONSOLE_ESC(29C));
+    }
+    printf("%c",200);
+    for (int i = 0; i < 20; i++) {
+        printf("%c",205);
+    }
+    printf("%c",188);
+    printf(CONSOLE_ESC(21;1H));
+    for (int i = 0; i < 5; i++) {
+        printf(CONSOLE_ESC(50C));
+        printf("%c\n",186);
+    }
+    printf(CONSOLE_ESC(21;31H));
+    for (int i = 0; i < 5; i++) {
+        printf("                    \n");
+        printf(CONSOLE_ESC(30C));
+    }
+    printf(CONSOLE_ESC(48;5;0m));
 }

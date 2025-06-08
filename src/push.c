@@ -673,7 +673,7 @@ int push() {
     }
     drawTitles();
     drawSelected();
-    while(true) {
+    while (true) {
         padUpdate(&pad);
         if (padGetButtons(&pad) & HidNpadButton_A) {
             svcSleepThread(100000);
@@ -790,6 +790,24 @@ int push() {
     printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     consoleUpdate(NULL);
+    while (true) {
+        padUpdate(&pad);
+        if (padGetButtons(&pad) & HidNpadButton_A || padGetButtons(&pad) & HidNpadButton_B) {
+            svcSleepThread(100000);
+        } else {
+            break;
+        }
+    }
+    checkTempZip();
+    while (true) {
+        padUpdate(&pad);
+        if (padGetButtons(&pad) & HidNpadButton_A || padGetButtons(&pad) & HidNpadButton_B) {
+            svcSleepThread(100000);
+        } else {
+            break;
+        }
+    }
+    checkTempFolder();
     for (int i = 0; i < arrayNum; i++) {
         printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
         for (int i = 0; i < 10; i++) {
