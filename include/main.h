@@ -4,7 +4,7 @@ extern int selectedUser;
 extern s32 total_users;
 
 int push();
-int pull();
+int pull(int device);
 
 void drawBorder();
 void drawTabs(int selected);

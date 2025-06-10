@@ -96,18 +96,16 @@ def checkConfig():
     else:
         return configFile
     
-def changeHost():
+def changeHost(device):
     global pressed_enter
-    appdataPath = os.getenv('LOCALAPPDATA')
-    if not appdataPath:
-        appdataPath = Path.home() / 'AppData' / 'Local'
-    configDir = Path(appdataPath) / 'NX-Save-Sync'
-    configDir.mkdir(exist_ok=True)
-    configFile = configDir / 'config.json'
+    configFile = checkConfig()
     if not configFile.exists():
         with open(configFile, 'w') as f:
             with dpg.window(tag="input2", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
-                dpg.add_text("Input switch IP")
+                if device == 0:
+                    dpg.add_text("Input switch IP")
+                elif device == 1:
+                    dpg.add_text("Input secondary switch IP")
                 dpg.add_input_text(width=250, tag="input_widget2")
                 input_entered = True
                 while input_entered:
@@ -121,13 +119,20 @@ def changeHost():
                 keyboard.unhook_all()
                 pressed_enter = False
                 hostIp = input_value
-            json.dump({"host": hostIp}, f, indent=4) 
+            if device == 0:
+                json.dump({"host": hostIp}, f, indent=4) 
+            elif device == 1:
+                json.dump({"shost": hostIp}, f, indent=4) 
+            
     else:
         config = {}
         with open(configFile, 'r') as f:
             config = json.load(f)
         with dpg.window(tag="input2", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
-            dpg.add_text("Input switch IP")
+            if device == 0:
+                dpg.add_text("Input switch IP")
+            elif device == 1:
+                dpg.add_text("Input secondary switch IP")
             dpg.add_input_text(width=250, tag="input_widget2")
             input_entered = True
             while input_entered:
@@ -141,11 +146,19 @@ def changeHost():
             keyboard.unhook_all()
             pressed_enter = False
         hostIp = input_value
-        config["host"] = hostIp
+        if device == 0:
+            config["host"] = hostIp
+        elif device == 1:
+            config["shost"] = hostIp
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
-    dpg.set_value("current_ip", f"Switch IP: {hostIp}")
-    dpg.set_item_label("current_ip_button", "Change switch IP")
+    if device == 0:
+        dpg.set_value("current_ip", f"Switch IP: {hostIp}")
+        dpg.set_item_label("current_ip_button", "Change switch IP")
+    elif device == 1:
+        dpg.set_value("current_ip2", f"Secondary switch IP: {hostIp}")
+        dpg.set_item_label("current_ip_button2", "Change Secondary switch IP")
+    
 
 def downloadZip(host, port, file_name):
     try:
@@ -480,12 +493,13 @@ def createWindow():
             with dpg.tab(label="Pull"):
                 dpg.add_text("Pull current save file from switch to pc")
                 with dpg.group(horizontal=True):
-                    dpg.add_button(label="Connect to switch", width=150, height=30, callback=startPull, tag="connect_button")
+                    dpg.add_button(label="Connect to switch", width=150, height=30, callback=lambda: startPull(0), tag="connect_button")
                     dpg.add_progress_bar(label="Temp", default_value=0, width=200, tag="progress_bar")
                     dpg.add_text("", tag="progress_info")
                     dpg.hide_item("progress_bar")
                     dpg.hide_item("progress_info")
-                output_widget = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
+                dpg.add_button(label="Connect to secondary switch", width=250, height=30, callback=lambda: startPull(1), tag="connect_button2")
+                output_widget = dpg.add_input_text(multiline=True, readonly=True, width=570, height=210, tab_input=True)
                 dpg.hide_item(output_widget)
             with dpg.tab(label="Push"):
                 dpg.add_text("Push newer save file from pc to switch")
@@ -510,13 +524,27 @@ def createWindow():
                         host = data.get("host")
                         if host:
                             dpg.add_text(f"Switch IP: {host}", tag="current_ip")
-                            dpg.add_button(label="Change switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
                         else:
                             dpg.add_text("Switch IP not set!", tag="current_ip")
-                            dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
+                        host = data.get("shost")
+                        if host:
+                            dpg.add_text(f"Secondary switch IP: {host}", tag="current_ip2")
+                        else:
+                            dpg.add_text("Secondary switch IP not set!", tag="current_ip2")
+                        host = data.get("host")
+                        if host:
+                            dpg.add_button(label="Change switch IP", width=150, height=30, tag="current_ip_button", callback=lambda: changeHost(0))
+                        else:
+                            dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=lambda: changeHost(0))
+                        host = data.get("shost")
+                        if host:
+                            dpg.add_button(label="Change secondary switch IP", width=250, height=30, tag="current_ip_button2", callback=lambda: changeHost(1))
+                        else:
+                            dpg.add_button(label="Set secondary switch IP", width=250, height=30, tag="current_ip_button2", callback=lambda: changeHost(1))
                 else:
                     dpg.add_text("Switch IP not set!", tag="current_ip")
-                    dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=changeHost)
+                    dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=lambda: changeHost(0))
+                    dpg.add_button(label="Set secondary switch IP", width=250, height=30, tag="current_ip_button2", callback=lambda: changeHost(1))
                 dpg.add_button(label="Show debug", width=150, height=30, callback=lambda: button_callback(output_window))
                 configFile = checkConfig()
                 if configFile != 0:
@@ -740,16 +768,16 @@ def startPush():
     if (result == 0):
         printToWidget2("Process ended with an error!\n")
         
-def startPull():
+def startPull(device):
     global selected
     selected = 1
-    result = pull()
+    result = pull(device)
     if (result == 0):
         printToWidget("Process ended with an error!\n")
     elif (result == 1):
         printToWidget("Process ended successfully!\n")
 
-def pull():
+def pull(device):
     global output_widget
     dpg.set_value(output_widget, "")
     dpg.show_item(output_widget)
@@ -759,11 +787,17 @@ def pull():
         return 0
     with open(configFile, 'r') as file:
         data = json.load(file)
-        host = data.get("host")
+        if device == 0:
+            host = data.get("host")
+        elif device == 1:
+            host = data.get("shost")
         if host:
             printToWidget(f"Connecting to host: {host}\n")
         else:
-            printToWidget("Switch IP not set!\n")
+            if device == 0:
+                printToWidget("Switch IP not set!\n")
+            elif device == 1:
+                printToWidget("Secondary switch IP not set!\n")
             return 0
     if downloadZip(host, 8080, "temp.zip") == 0:
        return 0

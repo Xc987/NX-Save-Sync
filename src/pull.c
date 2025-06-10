@@ -307,24 +307,24 @@ static void getTitleName(u64 title) {
     buf = (NsApplicationControlData*)malloc(sizeof(NsApplicationControlData));
     if (buf==NULL) {
         rc = MAKERESULT(Module_Libnx, LibnxError_OutOfMemory);
-        printf("Failed to alloc mem.\n");
+        printf(CONSOLE_ESC(1C) "Failed to alloc mem.\n");
     } else {
         memset(buf, 0, sizeof(NsApplicationControlData));
     }
     if (R_SUCCEEDED(rc)) {
         rc = nsInitialize();
         if (R_FAILED(rc)) {
-            printf("nsInitialize() failed: 0x%x\n", rc);
+            printf(CONSOLE_ESC(1C) "nsInitialize() failed: 0x%x\n", rc);
         }
     }
     if (R_SUCCEEDED(rc)) {
         rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, application_id, buf, sizeof(NsApplicationControlData), &outsize);
         if (R_FAILED(rc)) {
-            printf("nsGetApplicationControlData() failed: 0x%x\n", rc);
+            printf(CONSOLE_ESC(1C) "nsGetApplicationControlData() failed: 0x%x\n", rc);
         }
         if (outsize < sizeof(buf->nacp)) {
             rc = -1;
-            printf("Outsize is too small: 0x%lx.\n", outsize);
+            printf(CONSOLE_ESC(1C) "Outsize is too small: 0x%lx.\n", outsize);
         }
         if (R_SUCCEEDED(rc)) {
             rc = nacpGetLanguageEntry(&buf->nacp, &langentry);
@@ -339,8 +339,8 @@ static void getTitleName(u64 title) {
     }
     free(buf);
 }
-int pull() {
-    printf(CONSOLE_ESC(10;2H));
+int pull(int device) {
+    printf(CONSOLE_ESC(11;2H));
     for (int i = 0; i < 20; i++) {
         printf("                                                                  \n");
         printf(CONSOLE_ESC(1C));
@@ -351,8 +351,10 @@ int pull() {
     printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     if (!file) {
-        printf(CONSOLE_ESC(1C) "PC IP not set!\n");
+        printf(CONSOLE_ESC(1C) "Config file not found!\n");
         return 0;
+    } else {
+        fclose(file);
     }
     while (true) {
         padUpdate(&pad);
@@ -372,7 +374,7 @@ int pull() {
         }
     }
     checkTempFolder();
-    printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(12;1H) CONSOLE_ESC(38;5;255m));
     Result rc = 0;
     if (file) {
         json_error_t error;
@@ -380,17 +382,34 @@ int pull() {
         if (!root) {
             return 0;
         }
-        json_t *host_val = json_object_get(root, "host");
-        if (!json_is_string(host_val)) {
+        char *result = NULL; 
+        if (device == 0) {
+            json_t *host_val = json_object_get(root, "host");
+            if (!json_is_string(host_val)) {
+                json_decref(root);
+                printf(CONSOLE_ESC(1C) "PC IP not set!\n");
+                return 0;
+            }
+            const char *host_str = json_string_value(host_val);
+            result = strdup(host_str);
             json_decref(root);
-            return 0;
+            printf(CONSOLE_ESC(1C) "Connecting to host: %s\n", result);
+        } else if (device == 1) {
+            json_t *host_val = json_object_get(root, "shost");
+            if (!json_is_string(host_val)) {
+                json_decref(root);
+                printf(CONSOLE_ESC(1C) "Secondary switch IP not set!\n");
+                return 0;
+            }
+            const char *host_str = json_string_value(host_val);
+            result = strdup(host_str);
+            json_decref(root);
+            printf(CONSOLE_ESC(1C) "Connecting to host: %s\n", result);
         }
-        const char *host_str = json_string_value(host_val);
-        char *result = strdup(host_str);
-        json_decref(root);
-        printf(CONSOLE_ESC(1C) "Connecting to host: %s\n", result);
+        fclose(file);
         consoleUpdate(NULL);
         int returnvalue = downloadZip(result);
+        free(result);
         if (returnvalue == 0) {
             return 0;
         } else if (returnvalue == 2) {
@@ -428,59 +447,63 @@ int pull() {
         }
     }
     closedir(dirw);
+    int succeededTitles = 0;
     char *folderName = NULL;
     int currentSubfolder = 1;
     DIR *dir = opendir("sdmc:/temp");
-        if (dir != NULL) {
-            struct dirent *entry;
-            while ((entry = readdir(dir)) != NULL) {
-                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-                    continue;
-                if (entry->d_type == DT_DIR) {
-                    printf(CONSOLE_ESC(16;1H) CONSOLE_ESC(38;5;255m));
-                    for (int i = 0; i < 10; i++) {
-                        printf(CONSOLE_ESC(1C)"                                                                        \n");
-                    }
-                    printf(CONSOLE_ESC(16;2H) CONSOLE_ESC(38;5;255m));
-                    printf("Moving title save data - %d / %d\n\n", currentSubfolder, count);
-                    char *preHexTID = entry->d_name;
-                    folderName = entry->d_name;
-                    hexToUpper(folderName);
-                    uint64_t application_id = hexToU64(folderName);
-                    getTitleName(application_id);
-                    printf(CONSOLE_ESC(1C) "TID: %s\n", preHexTID);
-                    if (R_SUCCEEDED(rc)) {
-                        printf(CONSOLE_ESC(1C) "Mounting save:/\n");
-                        consoleUpdate(NULL);
-                        rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
-                        if (R_FAILED(rc)) {
-                            printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
-                            cleanUp();
-                            return 0;
-                        }
-                    }
-                    if (R_SUCCEEDED(rc)) {
-                        printf(CONSOLE_ESC(1C) "Deleting any existing save file in save:/\n");
-                        consoleUpdate(NULL);
-                        cleanDir("save:/");
-                        char backup_path[64];
-                        snprintf(backup_path, sizeof(backup_path), "sdmc:/temp/%016lx", application_id);
-                        printf(CONSOLE_ESC(1C) "Moving save file\n");
-                        consoleUpdate(NULL);
-                        moveSave(backup_path, "save:/");
-                        rc = fsdevCommitDevice("save");
-                        if (R_FAILED(rc)) {
-                            printf("Failed to commit changes: 0x%x\n", rc);
-                            cleanUp();
-                            return 0;
-                        }
-                        fsdevUnmountDevice("save");
-                    }
-                    currentSubfolder += 1;
+    if (dir != NULL) {
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+            if (entry->d_type == DT_DIR) {
+                printf(CONSOLE_ESC(17;1H) CONSOLE_ESC(38;5;255m));
+                for (int i = 0; i < 10; i++) {
+                    printf(CONSOLE_ESC(1C)"                                                                        \n");
                 }
+                printf(CONSOLE_ESC(17;2H) CONSOLE_ESC(38;5;255m));
+                printf("Moving title save data - %d / %d\n\n", currentSubfolder, count);
+                char *preHexTID = entry->d_name;
+                folderName = entry->d_name;
+                hexToUpper(folderName);
+                uint64_t application_id = hexToU64(folderName);
+                getTitleName(application_id);
+                printf(CONSOLE_ESC(1C) "TID: %s\n", preHexTID);
+                if (R_SUCCEEDED(rc)) {
+                    printf(CONSOLE_ESC(1C) "Mounting save:/\n");
+                    consoleUpdate(NULL);
+                    rc = fsdevMountSaveData("save", application_id, userAccounts[selectedUser]);
+                    if (R_FAILED(rc)) {
+                        printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed, skipping title!\n");
+                        currentSubfolder += 1;
+                        continue;
+                    }
+                }
+                if (R_SUCCEEDED(rc)) {
+                    printf(CONSOLE_ESC(1C) "Deleting any existing save file in save:/\n");
+                    consoleUpdate(NULL);
+                    cleanDir("save:/");
+                    char backup_path[64];
+                    snprintf(backup_path, sizeof(backup_path), "sdmc:/temp/%016lx", application_id);
+                    printf(CONSOLE_ESC(1C) "Moving save file\n");
+                    consoleUpdate(NULL);
+                    moveSave(backup_path, "save:/");
+                    rc = fsdevCommitDevice("save");
+                    if (R_FAILED(rc)) {
+                        printf("Failed to commit changes: 0x%x, skipping title!\n", rc);
+                        currentSubfolder += 1;
+                        continue;
+                    }
+                    fsdevUnmountDevice("save");
+                    succeededTitles += 1;
+                }
+                currentSubfolder += 1;
             }
-            closedir(dir);
         }
+        closedir(dir);
+    }
+    printf("\n");
+    printf(CONSOLE_ESC(1C) "Total moved save files:  %d / %d\n\n", succeededTitles, count);
     cleanUp();
     return 1;
 }

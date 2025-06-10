@@ -11,7 +11,7 @@ AccountUid userAccounts[12];
 int selectedUser = 0;
 s32 total_users = 0;
 
-static int checkConfig() {
+static int checkConfig(int device) {
     FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
     json_error_t error;
     json_t *root = json_loadf(file, 0, &error);
@@ -20,18 +20,34 @@ static int checkConfig() {
         printf("Error parsing JSON on line %d: %s\n\n", error.line, error.text);
         return 0;
     }
-    json_t *host_value = json_object_get(root, "host");
-    if (!host_value || !json_is_string(host_value)) {
-        json_decref(root);
-        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "PC IP not set!\n");
+    if (device == 0) {
+        json_t *host_value = json_object_get(root, "host");
+        if (!host_value || !json_is_string(host_value)) {
+            json_decref(root);
+            printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "PC IP not set!\n");
+            printf(CONSOLE_ESC(0m));
+            return 0;
+        }
+        const char *host = json_string_value(host_value);
+        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Current PC IP: %s\n", host);
         printf(CONSOLE_ESC(0m));
-        return 0;
+        json_decref(root);
+        return 1;
+    } else if (device == 1) {
+        json_t *host_value = json_object_get(root, "shost");
+        if (!host_value || !json_is_string(host_value)) {
+            json_decref(root);
+            printf(CONSOLE_ESC(8;2H) CONSOLE_ESC(38;5;255m) "Secondary switch IP not set!\n");
+            printf(CONSOLE_ESC(0m));
+            return 0;
+        }
+        const char *host = json_string_value(host_value);
+        printf(CONSOLE_ESC(8;2H) CONSOLE_ESC(38;5;255m) "Current secondary switch IP: %s\n", host);
+        printf(CONSOLE_ESC(0m));
+        json_decref(root);
+        return 1;
     }
-    const char *host = json_string_value(host_value);
-    printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Current PC IP: %s\n", host);
-    printf(CONSOLE_ESC(0m));
-    json_decref(root);
-    return 1;
+    return 0;
 }
 static void drawSelected(int selected) {
     printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "                                                                           \n" CONSOLE_ESC(0m));
@@ -41,52 +57,89 @@ static void drawSelected(int selected) {
     } else if (selected == 2) {
         printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch\n" CONSOLE_ESC(0m));
         printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Connect to PC                                                                 \n" CONSOLE_ESC(0m));
-        printf(CONSOLE_ESC(10;2H) "                                                                              \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Connect to secondary switch                                                   \n" CONSOLE_ESC(0m));
     } else if (selected == 3) {
-        if (checkConfig() == 0) {
-            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
-        } else {
-            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
-        }
-        bool pushvalue = getKeyValue("compression");
-        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No " CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Pull newer save file from pc to switch\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Connect to PC                                                                 \n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Connect to secondary switch                                                   \n" CONSOLE_ESC(0m));
     } else if (selected == 4) {
-        if (checkConfig() == 0) {
-            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
+        if (checkConfig(0) == 0) {
+            printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
         } else {
-            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
+        }
+        if (checkConfig(1) == 0) {
+            printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Set secondary switch IP                                                       \n" CONSOLE_ESC(0m));
+        } else {
+            printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Change secondary switch IP                                                    \n" CONSOLE_ESC(0m));
         }
         bool pushvalue = getKeyValue("compression");
-        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
-        printf(CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(12;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No " CONSOLE_ESC(0m));
     } else if (selected == 5) {
-        if (checkConfig() == 0) {
-            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
+        if (checkConfig(0) == 0) {
+            printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
         } else {
-            printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
+        }
+        if (checkConfig(1) == 0) {
+            printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Set secondary switch IP                                                       \n" CONSOLE_ESC(0m));
+        } else {
+            printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Change secondary switch IP                                                    \n" CONSOLE_ESC(0m));
         }
         bool pushvalue = getKeyValue("compression");
-        printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
+        printf(CONSOLE_ESC(12;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
+        printf(CONSOLE_ESC(0m));
+    } else if (selected == 6) {
+        if (checkConfig(0) == 0) {
+            printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
+        } else {
+            printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(38;5;255m) "Change PC IP                                                                  \n" CONSOLE_ESC(0m));
+        }
+        if (checkConfig(1) == 0) {
+            printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Set secondary switch IP                                                       \n" CONSOLE_ESC(0m));
+        } else {
+            printf(CONSOLE_ESC(11;2H) CONSOLE_ESC(38;5;255m) "Change secondary switch IP                                                    \n" CONSOLE_ESC(0m));
+        }
+        bool pushvalue = getKeyValue("compression");
+        printf(CONSOLE_ESC(12;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", pushvalue?"Yes":"No ");
         printf(CONSOLE_ESC(0m));
     }
 }
-static void createConfig() {
+static void createConfig(int device) {
     SwkbdConfig keyboard;
     char inputText[16] = {0};
-    if (checkConfig() == 0) {
-        strcpy(inputText, "192.168.0.0");
-    } else {
-        json_error_t error;
-        json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
-        if (!root) {
-            printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+    if (device == 0) {
+        if (checkConfig(0) == 0) {
             strcpy(inputText, "192.168.0.0");
+        } else {
+            json_error_t error;
+            json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+            if (!root) {
+                printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+                strcpy(inputText, "192.168.0.0");
+            }
+            json_t *host_value_json = json_object_get(root, "host");
+            const char *host_str = json_string_value(host_value_json);
+            strncpy(inputText, host_str, sizeof(inputText) - 1);
+            inputText[sizeof(inputText) - 1] = '\0'; 
+            json_decref(root);
         }
-        json_t *host_value_json = json_object_get(root, "host");
-        const char *host_str = json_string_value(host_value_json);
-        strncpy(inputText, host_str, sizeof(inputText) - 1);
-        inputText[sizeof(inputText) - 1] = '\0'; 
-        json_decref(root);
+    } else if (device == 1) {
+        if (checkConfig(1) == 0) {
+            strcpy(inputText, "192.168.0.0");
+        } else {
+            json_error_t error;
+            json_t *root = json_load_file("sdmc:/switch/NX-Save-Sync/config.json", 0, &error);
+            if (!root) {
+                printf("Error reading config.json: %s (line %d)\n", error.text, error.line);
+                strcpy(inputText, "192.168.0.0");
+            }
+            json_t *host_value_json = json_object_get(root, "shost");
+            const char *host_str = json_string_value(host_value_json);
+            strncpy(inputText, host_str, sizeof(inputText) - 1);
+            inputText[sizeof(inputText) - 1] = '\0'; 
+            json_decref(root);
+        }
     }
     Result rc = 0;
     rc = swkbdCreate(&keyboard, 0);
@@ -95,7 +148,11 @@ static void createConfig() {
         swkbdConfigSetInitialText(&keyboard, inputText);
         swkbdConfigSetStringLenMax(&keyboard, 15);
         swkbdConfigSetOkButtonText(&keyboard, "Submit");
-        swkbdConfigSetSubText(&keyboard, "Please input PC IP");
+        if (device == 0) {
+            swkbdConfigSetSubText(&keyboard, "Please input PC IP");
+        } else if (device == 1) {
+            swkbdConfigSetSubText(&keyboard, "Please input secondary switch IP");
+        }
         swkbdConfigSetGuideText(&keyboard, "192.168.XXX.XXX");
         rc = swkbdShow(&keyboard, inputText, sizeof(inputText));
         swkbdClose(&keyboard); 
@@ -111,13 +168,19 @@ static void createConfig() {
     if (!root) {
         printf("Failed to parse JSON: %s\n", error.text);
     } else {
-        json_object_set_new(root, "host", json_string(inputText));
+        if (device == 0) {
+            json_object_set_new(root, "host", json_string(inputText));
+        } else if (device == 1) {
+            json_object_set_new(root, "shost", json_string(inputText));
+        }
+        
         FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
         if (fp) {
             json_dumpf(root, fp, JSON_INDENT(4));
             fclose(fp);
         }
         json_decref(root);
+        fclose(file);
     }
 }
 static void getUsers() {
@@ -157,9 +220,9 @@ static void getUsers() {
         accountExit();
 }
 void clearLog() {
-    printf(CONSOLE_ESC(11;2H));
-    for (int i = 0; i < 20; i++) {
-        printf("                                                                  \n");
+    printf(CONSOLE_ESC(7;2H));
+    for (int i = 0; i < 30; i++) {
+        printf("                                                                              \n");
         printf(CONSOLE_ESC(1C));
     }
 }
@@ -179,7 +242,19 @@ int main() {
             fclose(fp);
         }
     } else {
+        json_error_t error;
+        json_t *root = json_loadf(file, 0, &error);
         fclose(file);
+        json_t *host_value = json_object_get(root, "compression");
+        if (!host_value) {
+            json_object_set_new(root, "compression", json_true());
+            FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+            if (fp) {
+                json_dumpf(root, fp, JSON_INDENT(4));
+                fclose(fp);
+            }
+        }
+        json_decref(root);
     }
     int returnValue = 0;
     int selected = 1;
@@ -218,32 +293,45 @@ int main() {
         }
         if (kDown & HidNpadButton_AnyLeft) {
             if (selected > 1) {
-                if (selected == 4) {
+                if (selected == 4 || selected == 5 || selected == 6) {
                     selected = 2;
+                } else if (selected == 2 || selected == 3) {
+                    selected = 1;
                 } else {
                     selected -= 1;
                 }
+                
                 drawTabs(selected);
-                drawSelected(selected);
                 clearLog();
+                drawSelected(selected);
             }
         }
         if (kDown & HidNpadButton_AnyRight) {
-            if (selected < 3) {
+            if (selected == 1) {
                 selected += 1;
                 drawTabs(selected);
-                drawSelected(selected);
                 clearLog();
+                drawSelected(selected);
+            } else if (selected == 2) {
+                selected += 2;
+                drawTabs(3);
+                clearLog();
+                drawSelected(selected);
+            } else if (selected == 3) {
+                selected += 1;
+                drawTabs(3);
+                clearLog();
+                drawSelected(selected);
             }
         }
         if (kDown & HidNpadButton_AnyDown) {
-            if (selected != 4 && selected >= 3) {
+            if ((selected != 6 && selected >= 4) || selected == 2) {
                 selected += 1;
                 drawSelected(selected);
             }
         }
         if (kDown & HidNpadButton_AnyUp) {
-            if (selected != 3  && selected >= 3) {
+            if ((selected != 4  && selected >= 4) || selected == 3) {
                 selected -= 1;
                 drawSelected(selected);
             }
@@ -277,7 +365,7 @@ int main() {
                     svcSleepThread(500000000);
                 }
             } else if (selected == 2) {
-                returnValue = pull();
+                returnValue = pull(0);
                 printf("\n");
                 if (returnValue == 0) {
                     printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
@@ -288,9 +376,23 @@ int main() {
                     svcSleepThread(500000000);
                 }
             } else if (selected == 3) {
-                createConfig();
-                drawSelected(selected);
+                returnValue = pull(1);
+                printf("\n");
+                if (returnValue == 0) {
+                    printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Process ended with an error!\n" CONSOLE_ESC(0m));
+                } else if (returnValue == 1) {
+                    printf(CONSOLE_ESC(38;5;46m) CONSOLE_ESC(1C) "Process ended successfully!\n" CONSOLE_ESC(0m));
+                } else if (returnValue == 2) {
+                    printf(CONSOLE_ESC(38;5;226m) CONSOLE_ESC(1C) "Process was aborted.\n" CONSOLE_ESC(0m));
+                    svcSleepThread(500000000);
+                }
             } else if (selected == 4) {
+                createConfig(0);
+                drawSelected(selected);
+            } else if (selected == 5) {
+                createConfig(1);
+                drawSelected(selected);
+            } else if (selected == 6) {
                 json_t *root = NULL;
                 json_error_t error;
                 FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
