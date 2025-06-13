@@ -159,7 +159,6 @@ def changeHost(device):
         dpg.set_value("current_ip2", f"Secondary switch IP: {hostIp}")
         dpg.set_item_label("current_ip_button2", "Change Secondary switch IP")
     
-
 def downloadZip(host, port, file_name):
     try:
         printToWidget("Downloading temp.zip.\n")
@@ -459,12 +458,7 @@ def createWindow():
                 themesel = 2
                 setTheme()
             elif (theme == None):
-                appdataPath = os.getenv('LOCALAPPDATA')
-                if not appdataPath:
-                    appdataPath = Path.home() / 'AppData' / 'Local'
-                configDir = Path(appdataPath) / 'NX-Save-Sync'
-                configDir.mkdir(exist_ok=True)
-                configFile = configDir / 'config.json'
+                configFile = checkConfig()
                 config = {}
                 with open(configFile, 'r') as f:
                     config = json.load(f)
@@ -490,8 +484,8 @@ def createWindow():
         dpg.bind_font(default_font)
         dpg.set_global_font_scale(0.57)
         with dpg.tab_bar():
-            with dpg.tab(label="Pull"):
-                dpg.add_text("Pull current save file from switch to pc")
+            with dpg.tab(label="Receive"):
+                dpg.add_text("Receive save file from primary switch or secondary switch")
                 with dpg.group(horizontal=True):
                     dpg.add_button(label="Connect to switch", width=150, height=30, callback=lambda: startPull(0), tag="connect_button")
                     dpg.add_progress_bar(label="Temp", default_value=0, width=200, tag="progress_bar")
@@ -501,8 +495,8 @@ def createWindow():
                 dpg.add_button(label="Connect to secondary switch", width=250, height=30, callback=lambda: startPull(1), tag="connect_button2")
                 output_widget = dpg.add_input_text(multiline=True, readonly=True, width=570, height=210, tab_input=True)
                 dpg.hide_item(output_widget)
-            with dpg.tab(label="Push"):
-                dpg.add_text("Push newer save file from pc to switch")
+            with dpg.tab(label="Send"):
+                dpg.add_text("Send save file to primary switch or secondary switch")
                 dpg.add_button(label="Start server", width=150, height=30, callback=startPush, tag="start_button")
                 output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
                 dpg.hide_item(output_widget2)
@@ -709,6 +703,12 @@ def printToWidget2(message):
     if output_widget2 is not None:
         dpg.set_value(output_widget2, dpg.get_value(output_widget2) + message)
 
+def checkForTemp():
+    if os.path.isfile(zipPath):
+        os.remove(os.path.join(scriptDir, "temp.zip"))
+    if os.path.isdir(tempDir):
+        shutil.rmtree(tempDir)
+
 def changeSelection(sender, app_data, user_data):
     item = user_data
     if app_data:
@@ -724,7 +724,11 @@ def changeSelection(sender, app_data, user_data):
         dpg.hide_item("start_push_button")
     else:
         dpg.show_item("start_push_button")
-    dpg.set_item_label("start_push_button", f"Push {len(selected_items)} titles")
+    if len(selected_items) == 1:
+        dpg.set_item_label("start_push_button", f"Send {len(selected_items)} title")
+    else:
+        dpg.set_item_label("start_push_button", f"Send {len(selected_items)} titles")
+    
 
 def selectAllTitles():
     global selected_items
@@ -750,15 +754,15 @@ def selectTitle():
         return 0
     else:
         with dpg.window(tag="titles", label="Title selection Window", pos=(40, 50), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=500, height=275):
-            dpg.add_text("Select a title you want to push save file")
+            dpg.add_text("Select a title(s) you want to send save file")
             with dpg.child_window(height=175, width=-1, border=False):
                 for item in titles:
                     with dpg.group(horizontal=True):
                         dpg.add_checkbox(callback=changeSelection, user_data=item, tag=item)
                         dpg.add_text(f"{item}", tag=f"{item}_text")
             with dpg.group(horizontal=True):
-                dpg.add_button(label="Push 0 titles", callback=push, tag="start_push_button")
-                dpg.add_button(label="Select all titles", callback=selectAllTitles)
+                dpg.add_button(label="Send 0 titles", callback=push, tag="start_push_button")
+                dpg.add_button(label="Send all titles", callback=selectAllTitles)
             dpg.hide_item("start_push_button")
 
 def startPush():
@@ -781,6 +785,7 @@ def pull(device):
     global output_widget
     dpg.set_value(output_widget, "")
     dpg.show_item(output_widget)
+    checkForTemp()
     configFile = checkConfig()
     if configFile == 0:
         printToWidget("Config file doesnt exist!\n")
@@ -880,6 +885,7 @@ def push():
     global titles, keys, paths, selected_items
     dpg.set_value(output_widget2, "")
     dpg.show_item(output_widget2)
+    checkForTemp()
     os.mkdir(tempDir)
     for i in range(0, len(selected_items)):
         selectedTitle = titles.index(list(selected_items)[i])

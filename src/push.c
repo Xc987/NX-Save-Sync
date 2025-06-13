@@ -649,7 +649,7 @@ int push() {
     if (arrayNum == 0){
         printf(CONSOLE_ESC(0m));
         clearTitles();
-        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Send save file to pc or secondary switch\n" CONSOLE_ESC(0m));
         printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
         cleanUpVar();
         return 0;
@@ -662,7 +662,7 @@ int push() {
     printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     printf("                                                                      ");
     printf(CONSOLE_ESC(7;28H)"%s%d", "Select a title. Page 1 / ", maxPages);
-    printf(CONSOLE_ESC(39;6H) "A - Push title | Y - (De)/Select title | X - Select all titles");
+    printf(CONSOLE_ESC(39;6H) "A - Send title | Y - (De)/Select title | X - Send all titles");
     printf(CONSOLE_ESC(8;6H));
     for (int i = 0; i < 70; i++) {
         printf("%c",196);
@@ -687,7 +687,7 @@ int push() {
         if (kDown & HidNpadButton_Plus || kDown & HidNpadButton_B) {
             printf(CONSOLE_ESC(0m));
             clearTitles();
-            printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Send save file to pc or secondary switch\n" CONSOLE_ESC(0m));
             printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
             cleanUpVar();
             return 2;
@@ -765,9 +765,9 @@ int push() {
             printf(CONSOLE_ESC(39;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
             printf("                                                                      ");
             if (arrayNum == 0) {
-                printf(CONSOLE_ESC(39;6H) "A - Push title | Y - (De)/Select title | X - Select all titles");
+                printf(CONSOLE_ESC(39;6H) "A - Send title | Y - (De)/Select title | X - Send all titles");
             } else {
-                printf(CONSOLE_ESC(39;6H) "A - Push %d titles | Y - (De)/Select title | X - Select all titles", arrayNum);
+                printf(CONSOLE_ESC(39;6H) "A - Send %d titles | Y - (De)/Select title | X - Send all titles", arrayNum);
             }
             printf(CONSOLE_ESC(0m));
         }
@@ -786,7 +786,7 @@ int push() {
         consoleUpdate(NULL);
     }
     nsExit();
-    printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Push current save file from switch to pc\n" CONSOLE_ESC(0m));
+    printf(CONSOLE_ESC(7;2H) CONSOLE_ESC(38;5;255m) "Send save file to pc or secondary switch\n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(9;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Start Server                                                                  \n" CONSOLE_ESC(0m));
     printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
     consoleUpdate(NULL);

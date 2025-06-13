@@ -95,9 +95,9 @@ void drawTabs(int selected) {
         printf("%c",196);
     }
     printf(CONSOLE_ESC(4;14H));
-    printf("%s","Push");
-    printf(CONSOLE_ESC(4;39H));
-    printf("%s","Pull");
+    printf("%s","Send");
+    printf(CONSOLE_ESC(4;37H));//receive
+    printf("%s","Receive");
     printf(CONSOLE_ESC(4;63H));
     printf("%s","Config");
 }
