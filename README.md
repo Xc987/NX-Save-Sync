@@ -6,22 +6,36 @@ NX Save Sync is a switch homebrew app to quickly sync save files between switch 
 
 ### Sync from switch to pc
 
-- Run switch app, press ZL / ZR or L / R to change the current user and select "Start server" in Push tab, move between tabs with any left / any right 
-- Select only one title with A, multiple titles with Y (select / deselect) and A to start pushing (not including the title thats hovered) or X to select all titles, move between pages with any left / any right 
+- Run switch app, press ZL / ZR or L / R to change the current user and select "Start server" in Send tab
+- Move between pages with any left / any right and select the title you wand to send:
+  - Single title with A
+  - Multiple titles with Y (select / deselect) and A to start sending (not including the title thats hovered) 
+  - All titles with X
 - If no errors occured, you should see switch IP in yellow
-- Open pc app, go to config tab and set the switch IP - **Only for the first time when syncing from switch to pc**
-- In pc app, go to Pull tab and select "Connect to switch"
+- Open pc app, go to Config tab and set the switch IP - **Only for the first time when syncing from switch to pc**
+- Go to Receive tab and select "Connect to switch"
 - Paste the emulator save file directory and press enter (**the directory contents will be deleted!**) - **Only for the first time syncing the selected title**
-- If no errors occured, the save file should be copied from switch to pc
+- If no errors occured, the save file should be sent from switch to pc
 
 ### Sync from pc to switch
 
-- Open pc app, go to Push tab and select "Start server"
-- Select the title(s) or all titles you want to push
+- Open pc app, go to Send tab and select "Start server"
+- Select the title(s) or all titles you want to send
 - If no errors occured, you should see pc IP
 - Run switch app, go to Config tab and select "Set PC IP" and enter the pc IP. - **Only for the first time when syncing from pc to switch**
-- In switch app, go to Pull tab and select "Connect to PC"
-- If no errors occured, the save file should be copied from pc to switch
+- Go to Receive tab and select "Connect to PC"
+- If no errors occured, the save file should be sent from pc to switch
+
+### Sync from primary switch to secondary switch
+
+- Run app on primary switch, go to Send tab and select "Start server"
+- Select the title(s) you want to send
+- If no errors occured, you should see switch IP in yellow
+- Run app on secondary switch, go to Config tab and set the secondary switch IP
+- Go to Receive tab and select "Connect to secondary switch"
+- If no errors occured, the save file should be sent from primary switch to secondary switch
+
+The same procces is for syncing from secondary switch to primary switch
 
 Note: During sync between switch and pc, both devices must be on the same network.
 
