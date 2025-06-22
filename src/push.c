@@ -17,6 +17,7 @@
 #include "miniz.h"
 #include "util.h"
 
+static NsApplicationControlData* titleDataBuffer = NULL;
 static volatile bool shutdownRequested = false;
 static char titleNames[256][100];
 static char titleIDS[256][17];
@@ -433,47 +434,56 @@ static void clearSelected() {
     }
     printf(CONSOLE_ESC(0m));
 }
+static void initializeTitleBuffer() {
+    if (titleDataBuffer == NULL) {
+        titleDataBuffer = (NsApplicationControlData*)malloc(sizeof(NsApplicationControlData));
+        if (titleDataBuffer == NULL) {
+            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to allocate persistent title buffer.\n" CONSOLE_ESC(0m));
+        }
+    }
+}
 static void getTitleName(u64 titleId, u32 recordCount) {
-    NsApplicationControlData *buf = NULL;
     u64 outsize = 0;
     NacpLanguageEntry *langentry = NULL;
     char name[0x201];
     Result rc = 0;
-    buf = (NsApplicationControlData*)malloc(sizeof(NsApplicationControlData));
-    if (buf == NULL) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to allocate memory for NsApplicationControlData.\n" CONSOLE_ESC(0m));
-        return;
+    if (titleDataBuffer == NULL) {
+        initializeTitleBuffer();
+        if (titleDataBuffer == NULL) return;
     }
-    memset(buf, 0, sizeof(NsApplicationControlData));
-    rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, titleId, buf, sizeof(NsApplicationControlData), &outsize);
+    memset(titleDataBuffer, 0, sizeof(NsApplicationControlData));
+    rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, titleId, titleDataBuffer, sizeof(NsApplicationControlData), &outsize);
     if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to get application control data for Title ID.\n" CONSOLE_ESC(0m));
-        free(buf);
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to get control data for %016lX.\n" CONSOLE_ESC(0m), titleId);
         return;
     }
-    if (outsize < sizeof(buf->nacp)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Outsize is too small for Title ID.\n" CONSOLE_ESC(0m));
-        free(buf);
+    if (outsize < sizeof(titleDataBuffer->nacp)) {
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[WARN] Outsize small for %016lX.\n" CONSOLE_ESC(0m), titleId);
         return;
     }
-    rc = nacpGetLanguageEntry(&buf->nacp, &langentry);
+    rc = nacpGetLanguageEntry(&titleDataBuffer->nacp, &langentry);
     if (R_FAILED(rc) || langentry == NULL) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to load LanguageEntry for Title ID.\n" CONSOLE_ESC(0m));
-        free(buf);
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[WARN] No lang entry for %016lX.\n" CONSOLE_ESC(0m), titleId);
         return;
     }
-    memset(name, 0, sizeof(name));
     strncpy(name, langentry->name, sizeof(name) - 1);
-    strcpy(titleNames[arrayNum],name);
-    char titleIdStr[17];
-    snprintf(titleIdStr, sizeof(titleIdStr), "%016lX", titleId); 
-    strcpy(titleIDS[arrayNum], titleIdStr);
-    arrayNum += 1;
-    printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
-    printf("Scanning installed titles, %d of %d",arrayNum, recordCount);
-    printf(CONSOLE_ESC(0m));
-    consoleUpdate(NULL);
-    free(buf);
+    name[sizeof(name) - 1] = '\0';
+    if (arrayNum < 255) {
+        strncpy(titleNames[arrayNum], name, sizeof(titleNames[0]) - 1);
+        titleNames[arrayNum][sizeof(titleNames[0]) - 1] = '\0';
+        snprintf(titleIDS[arrayNum], sizeof(titleIDS[0]), "%016lX", titleId);
+        arrayNum++;
+        printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+        printf("Scanning installed titles, %d of %d",arrayNum, recordCount);
+        printf(CONSOLE_ESC(0m));
+        consoleUpdate(NULL);
+    }
+}
+void cleanupTitleBuffer() {
+    if (titleDataBuffer) {
+        free(titleDataBuffer);
+        titleDataBuffer = NULL;
+    }
 }
 static void listTitles() {
     NsApplicationRecord *records = malloc(sizeof(NsApplicationRecord) * 256);
@@ -646,6 +656,7 @@ int push() {
     consoleUpdate(NULL);
     nsInitialize();
     listTitles();
+    cleanupTitleBuffer();
     if (arrayNum == 0){
         printf(CONSOLE_ESC(0m));
         clearTitles();
