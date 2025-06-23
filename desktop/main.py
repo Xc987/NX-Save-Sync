@@ -10,11 +10,24 @@ import os
 import sys
 import shutil
 import threading
-import keyboard
 import time
-import ctypes
-ctypes.windll.shcore.SetProcessDpiAwareness(2)
+import platform
+
+if platform.system() == "Windows":
+    import keyboard
+    import ctypes
+elif platform.system() == "Linux":
+    try:
+        import pynput.keyboard as pynput_keyboard
+    except ImportError:
+        print("Please install pynput for Linux support: pip install pynput")
+        sys.exit(1)
+
 output_buffer = StringIO()
+
+if platform.system() == "Linux":
+    linux_pressed_enter = False
+    keyboard_listener = None
 
 if getattr(sys, 'frozen', False):
     scriptDir = os.path.dirname(sys.executable)
@@ -85,10 +98,16 @@ class OutputWindow:
                 dpg.add_menu_item(label="Copy All", callback=lambda: dpg.set_clipboard_text(self.buffer.getvalue()))
 
 def checkConfig():
-    appdataPath = os.getenv('LOCALAPPDATA')
-    if not appdataPath:
-        appdataPath = Path.home() / 'AppData' / 'Local'
-    configDir = Path(appdataPath) / 'NX-Save-Sync'
+    if platform.system() == "Windows":
+        appdataPath = os.getenv('LOCALAPPDATA')
+        if not appdataPath:
+            appdataPath = Path.home() / 'AppData' / 'Local'
+        configDir = Path(appdataPath) / 'NX-Save-Sync'
+    elif platform.system() == "Linux":
+        configDir = Path.home() / '.config' / 'NX-Save-Sync'
+    else:
+        configDir = Path.home() / '.NX-Save-Sync'
+
     configDir.mkdir(exist_ok=True)
     configFile = configDir / 'config.json'
     if not configFile.exists():
@@ -97,27 +116,51 @@ def checkConfig():
         return configFile
     
 def changeHost(device):
-    global pressed_enter
+    global pressed_enter, linux_pressed_enter
     configFile = checkConfig()
     if not configFile.exists():
-        with open(configFile, 'w') as f:
+        with open(str(configFile), 'w') as f:
             with dpg.window(tag="input2", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
                 if device == 0:
                     dpg.add_text("Input switch IP")
                 elif device == 1:
                     dpg.add_text("Input secondary switch IP")
                 dpg.add_input_text(width=250, tag="input_widget2")
+
+                listener = None
+                if platform.system() == "Linux":
+                    def on_press(key):
+                        global linux_pressed_enter
+                        if key == pynput_keyboard.Key.enter:
+                            linux_pressed_enter = True
+
+                    listener = pynput_keyboard.Listener(on_press=on_press)
+                    listener.start()
+
                 input_entered = True
+                linux_pressed_enter = False
+                input_value = ""
                 while input_entered:
-                    keyboard.on_press(checkInput)
-                    input_value = dpg.get_value("input_widget2")
-                    if input_value != "" and pressed_enter:
-                        dpg.delete_item("input_widget2")
-                        dpg.delete_item("input2")
-                        input_entered = False
-                    time.sleep(0.1) 
-                keyboard.unhook_all()
+                    if platform.system() == "Windows":
+                        keyboard.on_press(checkInput)
+                        input_value = dpg.get_value("input_widget2")
+                        if input_value != "" and pressed_enter:
+                            dpg.delete_item("input_widget2")
+                            dpg.delete_item("input2")
+                            input_entered = False
+                    elif platform.system() == "Linux":
+                        input_value = dpg.get_value("input_widget2")
+                        if input_value != "" and linux_pressed_enter:
+                            dpg.delete_item("input_widget2")
+                            dpg.delete_item("input2")
+                            input_entered = False
+                    time.sleep(0.1)
+
+                if platform.system() == "Linux" and listener:
+                    listener.stop()
+
                 pressed_enter = False
+                linux_pressed_enter = False
                 hostIp = input_value
             if device == 0:
                 json.dump({"host": hostIp}, f, indent=4) 
@@ -134,18 +177,43 @@ def changeHost(device):
             elif device == 1:
                 dpg.add_text("Input secondary switch IP")
             dpg.add_input_text(width=250, tag="input_widget2")
+
+            listener = None
+            if platform.system() == "Linux":
+                def on_press(key):
+                    global linux_pressed_enter
+                    if key == pynput_keyboard.Key.enter:
+                        linux_pressed_enter = True
+
+                listener = pynput_keyboard.Listener(on_press=on_press)
+                listener.start()
+
             input_entered = True
+            linux_pressed_enter = False
+            input_value = ""
             while input_entered:
-                keyboard.on_press(checkInput)
-                input_value = dpg.get_value("input_widget2")
-                if input_value != "" and pressed_enter:
-                    dpg.delete_item("input_widget2")
-                    dpg.delete_item("input2")
-                    input_entered = False
-                time.sleep(0.1) 
-            keyboard.unhook_all()
+                if platform.system() == "Windows":
+                    keyboard.on_press(checkInput)
+                    input_value = dpg.get_value("input_widget2")
+                    if input_value != "" and pressed_enter:
+                        dpg.delete_item("input_widget2")
+                        dpg.delete_item("input2")
+                        input_entered = False
+                elif platform.system() == "Linux":
+                    input_value = dpg.get_value("input_widget2")
+                    if input_value != "" and linux_pressed_enter:
+                        dpg.delete_item("input_widget2")
+                        dpg.delete_item("input2")
+                        input_entered = False
+                time.sleep(0.1)
+
+            if platform.system() == "Linux" and listener:
+                listener.stop()
+
             pressed_enter = False
-        hostIp = input_value
+            linux_pressed_enter = False
+            hostIp = input_value
+
         if device == 0:
             config["host"] = hostIp
         elif device == 1:
@@ -323,18 +391,44 @@ def inputString():
     with dpg.window(tag="input", label="Input Window", pos=(125, 125), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
         dpg.add_text("Input emulator save file path")
         dpg.add_input_text(width=250, tag="input_widget")
-    global pressed_enter
+
+    global pressed_enter, linux_pressed_enter
+
+    listener = None
+    if platform.system() == "Linux":
+        def on_press(key):
+            global linux_pressed_enter
+            if key == pynput_keyboard.Key.enter:
+                linux_pressed_enter = True
+
+        listener = pynput_keyboard.Listener(on_press=on_press)
+        listener.start()
+
     input_entered = True
+    linux_pressed_enter = False
+    input_value = ""
+
     while input_entered:
-        keyboard.on_press(checkInput)
-        input_value = dpg.get_value("input_widget")
-        if input_value != "" and pressed_enter:
-            dpg.delete_item("input_widget")
-            dpg.delete_item("input")
-            input_entered = False
-        time.sleep(0.1) 
-    keyboard.unhook_all()
+        if platform.system() == "Windows":
+            keyboard.on_press(checkInput)
+            input_value = dpg.get_value("input_widget")
+            if input_value != "" and pressed_enter:
+                dpg.delete_item("input_widget")
+                dpg.delete_item("input")
+                input_entered = False
+        elif platform.system() == "Linux":
+            input_value = dpg.get_value("input_widget")
+            if input_value != "" and linux_pressed_enter:
+                dpg.delete_item("input_widget")
+                dpg.delete_item("input")
+                input_entered = False
+        time.sleep(0.1)
+
+    if platform.system() == "Linux" and listener:
+        listener.stop()
+
     pressed_enter = False
+    linux_pressed_enter = False
     return input_value
 
 def inputStringPath(titleName):
@@ -342,28 +436,50 @@ def inputStringPath(titleName):
         dpg.add_text("Input emulator save file path for title:")
         dpg.add_text(titleName)
         dpg.add_input_text(width=250, tag="input_widget")
-    global pressed_enter
+
+    global pressed_enter, linux_pressed_enter
+
+    listener = None
+    if platform.system() == "Linux":
+        def on_press(key):
+            global linux_pressed_enter
+            if key == pynput_keyboard.Key.enter:
+                linux_pressed_enter = True
+
+        listener = pynput_keyboard.Listener(on_press=on_press)
+        listener.start()
+
     input_entered = True
+    linux_pressed_enter = False
+    input_value = ""
+
     while input_entered:
-        keyboard.on_press(checkInput)
-        input_value = dpg.get_value("input_widget")
-        if input_value != "" and pressed_enter:
-            dpg.delete_item("input_widget")
-            dpg.delete_item("input")
-            input_entered = False
-        time.sleep(0.1) 
-    keyboard.unhook_all()
+        if platform.system() == "Windows":
+            keyboard.on_press(checkInput)
+            input_value = dpg.get_value("input_widget")
+            if input_value != "" and pressed_enter:
+                dpg.delete_item("input_widget")
+                dpg.delete_item("input")
+                input_entered = False
+        elif platform.system() == "Linux":
+            input_value = dpg.get_value("input_widget")
+            if input_value != "" and linux_pressed_enter:
+                dpg.delete_item("input_widget")
+                dpg.delete_item("input")
+                input_entered = False
+        time.sleep(0.1)
+
+    if platform.system() == "Linux" and listener:
+        listener.stop()
+
     pressed_enter = False
+    linux_pressed_enter = False
     return input_value
 
 def changeTheme(sender, app_data):
     global themesel
-    appdataPath = os.getenv('LOCALAPPDATA')
-    if not appdataPath:
-        appdataPath = Path.home() / 'AppData' / 'Local'
-    configDir = Path(appdataPath) / 'NX-Save-Sync'
-    configDir.mkdir(exist_ok=True)
-    configFile = configDir / 'config.json'
+    configFile = checkConfig()
+
     if dpg.get_value(sender):
         config = {}
         with open(configFile, 'r') as f:
@@ -444,8 +560,28 @@ def createWindow():
     global output_widget, output_widget2, themesel
     output_window = OutputWindow()
     dpg.create_context()
+
     with dpg.font_registry():
-        default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16*2)
+        if platform.system() == "Windows":
+            try:
+                default_font = dpg.add_font("C:/Windows/Fonts/arial.ttf", 16*2)
+            except:
+                default_font = None
+        elif platform.system() == "Linux":
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                "/usr/share/fonts/liberation/LiberationSans-Regular.ttf"
+            ]
+            default_font = None
+            for font_path in font_paths:
+                if os.path.exists(font_path):
+                    try:
+                        default_font = dpg.add_font(font_path, 16*2)
+                        break
+                    except:
+                        continue
+
     configFile = checkConfig()
     if configFile != 0:
         with open(configFile, 'r') as file:
@@ -468,21 +604,33 @@ def createWindow():
                 themesel = 1
                 setTheme()
     else:
-        appdataPath = os.getenv('LOCALAPPDATA')
-        if not appdataPath:
-            appdataPath = Path.home() / 'AppData' / 'Local'
-        configDir = Path(appdataPath) / 'NX-Save-Sync'
-        configDir.mkdir(exist_ok=True)
-        configFile = configDir / 'config.json'
+        configFile = checkConfig()
+        configDir = os.path.dirname(configFile) if configFile != 0 else None
+
+        if configDir is None:
+            if platform.system() == "Windows":
+                appdataPath = os.getenv('LOCALAPPDATA')
+                if not appdataPath:
+                    appdataPath = str(Path.home() / 'AppData' / 'Local')
+                configDir = os.path.join(appdataPath, 'NX-Save-Sync')
+            elif platform.system() == "Linux":
+                configDir = os.path.join(str(Path.home()), '.config', 'NX-Save-Sync')
+            else:
+                configDir = os.path.join(str(Path.home()), '.NX-Save-Sync')
+            os.makedirs(configDir, exist_ok=True)
+            configFile = os.path.join(configDir, 'config.json')
+
         config = {}
         with open(configFile, 'w') as f:
             theme = "dark"
             json.dump({"theme": theme}, f, indent=4)
         themesel = 1
         setTheme()
+
     with dpg.window(tag="Primary Window", label="Main Window", no_title_bar=True, no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=False, width=800, height=600):
-        dpg.bind_font(default_font)
-        dpg.set_global_font_scale(0.57)
+        if default_font:
+            dpg.bind_font(default_font)
+            dpg.set_global_font_scale(0.57)
         with dpg.tab_bar():
             with dpg.tab(label="Receive"):
                 dpg.add_text("Receive save file from primary switch or secondary switch")
@@ -657,22 +805,53 @@ def addTitle():
         dpg.add_input_text(width=250, tag="input_widget_name")
         dpg.add_text("Emulator save file path")
         dpg.add_input_text(width=250, tag="input_widget_path")
-    global pressed_enter
+
+    global pressed_enter, linux_pressed_enter
+
+    listener = None
+    if platform.system() == "Linux":
+        def on_press(key):
+            global linux_pressed_enter
+            if key == pynput_keyboard.Key.enter:
+                linux_pressed_enter = True
+
+        listener = pynput_keyboard.Listener(on_press=on_press)
+        listener.start()
+
     input_entered = True
+    linux_pressed_enter = False
+    tid_value, name_value, path_value = "", "", ""
+
     while input_entered:
-        keyboard.on_press(checkInput)
-        tid_value = dpg.get_value("input_widget_tid")
-        name_value = dpg.get_value("input_widget_name")
-        path_value = dpg.get_value("input_widget_path")
-        if tid_value != "" and name_value != "" and path_value != "" and pressed_enter:
-            dpg.delete_item("input")
-            dpg.delete_item("input_widget_tid")
-            dpg.delete_item("input_widget_name")
-            dpg.delete_item("input_widget_path")
-            input_entered = False
-        time.sleep(0.1) 
-    keyboard.unhook_all()
+        if platform.system() == "Windows":
+            keyboard.on_press(checkInput)
+            tid_value = dpg.get_value("input_widget_tid")
+            name_value = dpg.get_value("input_widget_name")
+            path_value = dpg.get_value("input_widget_path")
+            if tid_value != "" and name_value != "" and path_value != "" and pressed_enter:
+                dpg.delete_item("input")
+                dpg.delete_item("input_widget_tid")
+                dpg.delete_item("input_widget_name")
+                dpg.delete_item("input_widget_path")
+                input_entered = False
+        elif platform.system() == "Linux":
+            tid_value = dpg.get_value("input_widget_tid")
+            name_value = dpg.get_value("input_widget_name")
+            path_value = dpg.get_value("input_widget_path")
+            if tid_value != "" and name_value != "" and path_value != "" and linux_pressed_enter:
+                dpg.delete_item("input")
+                dpg.delete_item("input_widget_tid")
+                dpg.delete_item("input_widget_name")
+                dpg.delete_item("input_widget_path")
+                input_entered = False
+        time.sleep(0.1)
+
+    if platform.system() == "Linux" and listener:
+        listener.stop()
+
     pressed_enter = False
+    linux_pressed_enter = False
+
     configFile = checkConfig()
     with open(configFile, 'r') as file:
         data = json.load(file)
