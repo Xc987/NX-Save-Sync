@@ -24,6 +24,7 @@ static char titleIDS[256][17];
 static float titleSaveSize[256];
 static int totalApps = 0;
 static int arrayNum = 0;
+static int validapps = 0;
 static int currentPage = 1;
 static int maxPages = 1;
 static int selected = 1;
@@ -191,7 +192,7 @@ static int startSend() {
     while (!shutdownRequested) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
-        if (kDown & HidNpadButton_Plus) {
+        if (kDown & HidNpadButton_Plus || kDown & HidNpadButton_B) {
             shutdownRequested = true;
             exitflag = true;
             break;
@@ -207,7 +208,6 @@ static int startSend() {
             printf(CONSOLE_ESC(1C) "Failed to accept connection.\n");
             continue;
         }
-        // Set socket back to blocking mode for the HTTP handling
         flags = fcntl(client_socket, F_GETFL, 0);
         fcntl(client_socket, F_SETFL, flags & ~O_NONBLOCK);
         handleHttp(client_socket);
@@ -665,6 +665,7 @@ int push() {
         cleanUpVar();
         return 0;
     }
+    validapps = arrayNum;
     maxPages += arrayNum / 29;
     if (arrayNum % 29 == 0) {
         maxPages -= 1;
@@ -673,7 +674,7 @@ int push() {
     printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
     printf("                                                                      ");
     printf(CONSOLE_ESC(7;28H)"%s%d", "Select a title. Page 1 / ", maxPages);
-    printf(CONSOLE_ESC(39;6H) "A - Send title | Y - (De)/Select title | X - Send all titles");
+    printf(CONSOLE_ESC(39;6H) "A - Send title | Y - De/Select title | X - Send all titles");
     printf(CONSOLE_ESC(8;6H));
     for (int i = 0; i < 70; i++) {
         printf("%c",196);
@@ -752,35 +753,50 @@ int push() {
             }
         }
         if (kDown & HidNpadButton_Y) {
-            bool found = false;
-            if (arrayNum == 0) {
-                selectedTitles[arrayNum++] = selected;
-                drawSelected();
-                found = true;
-            } else {
-                for (int i = 0; i < arrayNum + 1; i++) {
-                    if (selectedTitles[i] == selected){
-                        selectedTitles[i] = selectedTitles[arrayNum-1];
-                        selectedTitles[arrayNum-1] = 0;
-                        arrayNum -= 1;
-                        found = true;
+            if (selectedInPage <= 29) {
+                bool found = false;
+                if (arrayNum == 0) {
+                    selectedTitles[arrayNum++] = selected;
+                    drawSelected();
+                    found = true;
+                    if (selectedInPage != 29 && selected != validapps) {
+                        clearSelected();
+                        selectedInPage +=  1;
+                        selected += 1;
                         drawSelected();
-                        break;
+                    }
+                } else {
+                    for (int i = 0; i < arrayNum + 1; i++) {
+                        if (selectedTitles[i] == selected){
+                            selectedTitles[i] = selectedTitles[arrayNum-1];
+                            selectedTitles[arrayNum-1] = 0;
+                            arrayNum -= 1;
+                            found = true;
+                            drawSelected();
+                            break;
+                        }
                     }
                 }
+                if (found == false) {
+                    selectedTitles[arrayNum++] = selected;
+                    drawSelected();
+                    if (selectedInPage != 29 && selected != validapps) {
+                        clearSelected();
+                        selectedInPage +=  1;
+                        selected += 1;
+                        drawSelected();
+                    }
+                }
+                printf(CONSOLE_ESC(39;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+                printf("                                                                      ");
+                if (arrayNum == 0) {
+                    printf(CONSOLE_ESC(39;6H) "A - Send title | Y - De/Select title | X - Send all titles");
+                } else {
+                    printf(CONSOLE_ESC(39;6H) "A - Send %d titles | Y - De/Select title | X - Send all titles", arrayNum);
+                }
+                printf(CONSOLE_ESC(0m));
             }
-            if(found == false) {
-                selectedTitles[arrayNum++] = selected;
-                drawSelected();
-            }
-            printf(CONSOLE_ESC(39;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
-            printf("                                                                      ");
-            if (arrayNum == 0) {
-                printf(CONSOLE_ESC(39;6H) "A - Send title | Y - (De)/Select title | X - Send all titles");
-            } else {
-                printf(CONSOLE_ESC(39;6H) "A - Send %d titles | Y - (De)/Select title | X - Send all titles", arrayNum);
-            }
-            printf(CONSOLE_ESC(0m));
+            
         }
         if (kDown & HidNpadButton_X) {
             arrayNum = 0;
@@ -917,7 +933,7 @@ int push() {
         } else if (returnvalue == 2) {
             while(true) {
                 padUpdate(&pad);
-                if (padGetButtons(&pad) & HidNpadButton_Plus) {
+                if (padGetButtons(&pad) & HidNpadButton_Plus || padGetButtons(&pad) & HidNpadButton_B) {
                     svcSleepThread(100000);
                 } else {
                     break;

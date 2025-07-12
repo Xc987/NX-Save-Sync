@@ -190,7 +190,7 @@ static int downloadZip(char *host) {
             tv.tv_usec = 10000;
             padUpdate(&pad);
             u64 kDown = padGetButtonsDown(&pad);
-            if (kDown & HidNpadButton_Plus) {
+            if (kDown & HidNpadButton_Plus || kDown & HidNpadButton_B) {
                 close(sock);
                 socketExit();
                 return 2;
@@ -415,7 +415,7 @@ int pull(int device) {
         } else if (returnvalue == 2) {
             while(true) {
                 padUpdate(&pad);
-                if (padGetButtons(&pad) & HidNpadButton_Plus) {
+                if (padGetButtons(&pad) & HidNpadButton_Plus || padGetButtons(&pad) & HidNpadButton_B) {
                     svcSleepThread(100000);
                 } else {
                     break;

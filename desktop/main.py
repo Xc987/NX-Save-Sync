@@ -16,6 +16,7 @@ import platform
 if platform.system() == "Windows":
     import keyboard
     import ctypes
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
 elif platform.system() == "Linux":
     try:
         import pynput.keyboard as pynput_keyboard
@@ -641,12 +642,12 @@ def createWindow():
                     dpg.hide_item("progress_bar")
                     dpg.hide_item("progress_info")
                 dpg.add_button(label="Connect to secondary switch", width=250, height=30, callback=lambda: startPull(1), tag="connect_button2")
-                output_widget = dpg.add_input_text(multiline=True, readonly=True, width=570, height=210, tab_input=True)
+                output_widget = dpg.add_input_text(multiline=True, readonly=True, width=-1, height=-1, tab_input=True)
                 dpg.hide_item(output_widget)
             with dpg.tab(label="Send"):
                 dpg.add_text("Send save file to primary switch or secondary switch")
                 dpg.add_button(label="Start server", width=150, height=30, callback=startPush, tag="start_button")
-                output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=570, height=240, tab_input=True)
+                output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=-1, height=-1, tab_input=True)
                 dpg.hide_item(output_widget2)
             with dpg.tab(label="Titles"):
                 with dpg.group(horizontal=True):
@@ -907,7 +908,6 @@ def changeSelection(sender, app_data, user_data):
         dpg.set_item_label("start_push_button", f"Send {len(selected_items)} title")
     else:
         dpg.set_item_label("start_push_button", f"Send {len(selected_items)} titles")
-    
 
 def selectAllTitles():
     global selected_items

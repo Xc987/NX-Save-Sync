@@ -1,6 +1,6 @@
 # NX Save Sync
 
-NX Save Sync is a switch homebrew app to quickly sync save files between switch and an emulator.
+NX Save Sync is a switch homebrew app to quickly sync save files between switch and an emulator or between multiple modded consoles.
 
 ## Usage
 
