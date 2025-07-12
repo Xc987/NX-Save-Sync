@@ -794,6 +794,36 @@ int push() {
                 } else {
                     printf(CONSOLE_ESC(39;6H) "A - Send %d titles | Y - De/Select title | X - Send all titles", arrayNum);
                 }
+                if (arrayNum == 0) {
+                    printf(CONSOLE_ESC(38;60H));
+                    for (int i = 0; i < 16; i++) {
+                        printf("%c",196);
+                    }
+                } else {
+                    double savesizesum = 0;
+                    for (int i = 0; i < arrayNum; i++) {
+                        savesizesum += titleSaveSize[selectedTitles[i] - 1];
+                    }
+                    char buffer[64];
+                    if (savesizesum > 0.1f) {
+                        snprintf(buffer, sizeof(buffer), "%.2f", savesizesum);
+                    } else if (savesizesum * (1024.0f * 1024.0f) > 0.1f) {
+                        snprintf(buffer, sizeof(buffer), "%.2f", savesizesum * 1024.0f);
+                    }
+                    int num_length = strlen(buffer);
+                    if (num_length < 9) {
+                        printf(CONSOLE_ESC(38;64H));
+                        int padding = 9 - num_length;
+                        for (int i = 0; i < padding; i++) {
+                            putchar(196);
+                        }
+                    }
+                    if (savesizesum > 0.1f) {
+                        printf("%s MB\n", buffer);
+                    } else if (savesizesum * (1024.0f * 1024.0f) > 0.1f) {
+                        printf("%s KB\n", buffer);
+                    }
+                }
                 printf(CONSOLE_ESC(0m));
             }
             
