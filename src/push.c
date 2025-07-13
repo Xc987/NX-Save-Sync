@@ -21,13 +21,14 @@ static NsApplicationControlData* titleDataBuffer = NULL;
 static volatile bool shutdownRequested = false;
 static char titleNames[256][100];
 static char titleIDS[256][17];
+static char uninstalledTitleIDS[256][17];
 static float titleSaveSize[256];
 static int totalApps = 0;
 static int arrayNum = 0;
-static int validapps = 0;
 static int currentPage = 1;
 static int maxPages = 1;
 static int selected = 1;
+static int uninstalledTitles = 0;
 static int selectedTitles[256];
 static int selectedInPage = 1;
 static char *pushingTitle = 0;
@@ -291,8 +292,19 @@ static void zipDir(const char *dir_path, const char *zip_path) {
     consoleUpdate(NULL);
 }
 static void drawTitles() {
-    printf(CONSOLE_ESC(9;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+    printf(CONSOLE_ESC(9;6H));
+    bool uninstalled = false;
     for (int i = ((currentPage-1) * 29); i < ((currentPage) * 29); i++) {
+        for (int n = 0; n < uninstalledTitles; n++){
+            if (strcmp(titleIDS[i], uninstalledTitleIDS[n]) == 0) {
+                uninstalled = true;
+            }
+        }
+        if (!uninstalled) {
+            printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+        } else {
+            printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;196m));
+        }
         printf("%-70s\n", titleNames[i]);
         if (totalApps > i) {
             printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
@@ -306,6 +318,7 @@ static void drawTitles() {
             }
         }
         printf(CONSOLE_ESC(5C));
+        uninstalled = false;
     }
     printf(CONSOLE_ESC(0m));
 }
@@ -325,9 +338,19 @@ static void drawMultipleSelected() {
             printf(CONSOLE_ESC(1B));
         }
         bool found = false;
+        bool uninstalled = false;
         for (int i = 0; i < arrayNum + 1; i++) {
-            if (selectedTitles[i] == savedSelected){
-                printf(CONSOLE_ESC(48;5;32m));
+            if (selectedTitles[i] == savedSelected) {
+                for (int n = 0; n < uninstalledTitles; n++){
+                    if (strcmp(titleIDS[savedSelected-1], uninstalledTitleIDS[n]) == 0) {
+                        uninstalled = true;
+                    }
+                }
+                if (!uninstalled) {
+                    printf(CONSOLE_ESC(48;5;32m) CONSOLE_ESC(38;5;255m));
+                } else {
+                    printf(CONSOLE_ESC(48;5;32m) CONSOLE_ESC(38;5;196m));
+                }
                 printf("%-70s\n", titleNames[savedSelected-1]);
                 printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
                 if (titleSaveSize[savedSelected-1] > 0.1f) {
@@ -342,7 +365,18 @@ static void drawMultipleSelected() {
                 break;
             }
         }
+        uninstalled = false;
         if (found == false) {
+            for (int n = 0; n < uninstalledTitles; n++){
+                if (strcmp(titleIDS[savedSelected-1], uninstalledTitleIDS[n]) == 0) {
+                    uninstalled = true;
+                }
+            }
+            if (!uninstalled) {
+                printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+            } else {
+                printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;196m));
+            }
             printf("%-70s\n", titleNames[savedSelected-1]);
             if (totalApps >= savedSelected){
                 printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
@@ -366,9 +400,19 @@ static void drawSelected() {
         printf(CONSOLE_ESC(1B));
     }
     bool found = false;
+    bool uninstalled = false;
     for (int i = 0; i < arrayNum + 1; i++) {
         if (selectedTitles[i] == selected){
-            printf(CONSOLE_ESC(48;5;26m));            
+            for (int n = 0; n < uninstalledTitles; n++){
+                if (strcmp(titleIDS[selected-1], uninstalledTitleIDS[n]) == 0) {
+                        uninstalled = true;
+                }
+            }
+            if (!uninstalled) {
+                printf(CONSOLE_ESC(48;5;26m) CONSOLE_ESC(38;5;255m));
+            } else {
+                printf(CONSOLE_ESC(48;5;26m) CONSOLE_ESC(38;5;196m));
+            }
             printf("%-70s\n", titleNames[selected-1]);
             printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
             if (titleSaveSize[selected-1] > 0.1f) {
@@ -380,10 +424,22 @@ static void drawSelected() {
                 printf("%*s\n", 9, "empty save");
             }
             found = true;
+            uninstalled = false;
             break;
         }
     }
+    uninstalled = false;
     if (found == false) {
+        for (int n = 0; n < uninstalledTitles; n++){
+            if (strcmp(titleIDS[selected-1], uninstalledTitleIDS[n]) == 0) {
+                uninstalled = true;
+            }
+        }
+        if (!uninstalled) {
+            printf(CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m));
+        } else {
+            printf(CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;196m));
+        }
         printf("%-70s\n", titleNames[selected-1]);
         printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
         if (titleSaveSize[selected-1] > 0.1f) {
@@ -403,9 +459,19 @@ static void clearSelected() {
         printf(CONSOLE_ESC(1B));
     }
     bool found = false;
+    bool uninstalled = false;
     for (int i = 0; i < arrayNum + 1; i++) {
-        if (selectedTitles[i] == selected){
-            printf(CONSOLE_ESC(48;5;32m));
+        if (selectedTitles[i] == selected) {
+            for (int n = 0; n < uninstalledTitles; n++){
+                if (strcmp(titleIDS[selected-1], uninstalledTitleIDS[n]) == 0) {
+                        uninstalled = true;
+                }
+            }
+            if (!uninstalled) {
+                printf(CONSOLE_ESC(48;5;32m) CONSOLE_ESC(38;5;255m));
+            } else {
+                printf(CONSOLE_ESC(48;5;32m) CONSOLE_ESC(38;5;196m));
+            }
             printf("%-70s\n", titleNames[selected-1]);
             printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
             if (titleSaveSize[selected-1] > 0.1f) {
@@ -417,10 +483,21 @@ static void clearSelected() {
                 printf("%*s\n", 9, "empty save");
             }
             found = true;
+            uninstalled = false;
             break;
         }
     }
     if (found == false) {
+        for (int n = 0; n < uninstalledTitles; n++){
+            if (strcmp(titleIDS[selected-1], uninstalledTitleIDS[n]) == 0) {
+                uninstalled = true;
+            }
+        }
+        if (!uninstalled) {
+            printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+        } else {
+            printf(CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;196m));
+        }
         printf("%-70s\n", titleNames[selected-1]);
         printf(CONSOLE_ESC(63C)CONSOLE_ESC(1A));
         if (titleSaveSize[selected-1] > 0.1f) {
@@ -438,7 +515,7 @@ static void initializeTitleBuffer() {
     if (titleDataBuffer == NULL) {
         titleDataBuffer = (NsApplicationControlData*)malloc(sizeof(NsApplicationControlData));
         if (titleDataBuffer == NULL) {
-            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to allocate persistent title buffer.\n" CONSOLE_ESC(0m));
+            printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Failed to allocate persistent title buffer.\n" CONSOLE_ESC(0m));
         }
     }
 }
@@ -454,16 +531,16 @@ static void getTitleName(u64 titleId, u32 recordCount) {
     memset(titleDataBuffer, 0, sizeof(NsApplicationControlData));
     rc = nsGetApplicationControlData(NsApplicationControlSource_Storage, titleId, titleDataBuffer, sizeof(NsApplicationControlData), &outsize);
     if (R_FAILED(rc)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to get control data for %016lX.\n" CONSOLE_ESC(0m), titleId);
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Failed to get control data for %016lX.\n" CONSOLE_ESC(0m), titleId);
         return;
     }
     if (outsize < sizeof(titleDataBuffer->nacp)) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[WARN] Outsize small for %016lX.\n" CONSOLE_ESC(0m), titleId);
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Outsize small for %016lX.\n" CONSOLE_ESC(0m), titleId);
         return;
     }
     rc = nacpGetLanguageEntry(&titleDataBuffer->nacp, &langentry);
     if (R_FAILED(rc) || langentry == NULL) {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[WARN] No lang entry for %016lX.\n" CONSOLE_ESC(0m), titleId);
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "No lang entry for %016lX.\n" CONSOLE_ESC(0m), titleId);
         return;
     }
     strncpy(name, langentry->name, sizeof(name) - 1);
@@ -484,6 +561,29 @@ void cleanupTitleBuffer() {
         free(titleDataBuffer);
         titleDataBuffer = NULL;
     }
+}
+bool uninstalledTitle(u64 titleID, char *name, size_t name_size) {
+    NsApplicationControlData *buf = malloc(sizeof(NsApplicationControlData));
+    if (!buf) return false;
+    memset(buf, 0, sizeof(NsApplicationControlData));
+
+    u64 outsize = 0;
+    NacpLanguageEntry *langentry = NULL;
+    bool success = false;
+
+    if (R_SUCCEEDED(nsInitialize())) {
+        if (R_SUCCEEDED(nsGetApplicationControlData(NsApplicationControlSource_Storage, titleID, buf, sizeof(NsApplicationControlData), &outsize))) {
+            if (outsize >= sizeof(buf->nacp) && R_SUCCEEDED(nacpGetLanguageEntry(&buf->nacp, &langentry)) && langentry) {
+                strncpy(name, langentry->name, name_size - 1);
+                name[name_size - 1] = '\0';
+                success = true;
+            }
+        }
+        nsExit();
+    }
+
+    free(buf);
+    return success;
 }
 static void listTitles() {
     NsApplicationRecord *records = malloc(sizeof(NsApplicationRecord) * 256);
@@ -516,9 +616,65 @@ static void listTitles() {
             }
         }
     } else {
-        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "[FAIL] Failed to list application records.\n" CONSOLE_ESC(0m));
+        printf(CONSOLE_ESC(38;5;196m) CONSOLE_ESC(1C) "Failed to list application records.\n" CONSOLE_ESC(0m));
     }
     free(records);
+    if (getKeyValue("scanuninstalled") == true) {
+        accountInitialize(AccountServiceType_System);
+        fsInitialize();
+        FsSaveDataInfoReader reader;
+        fsOpenSaveDataInfoReader(&reader, FsSaveDataSpaceId_User);
+        FsSaveDataInfo info;
+        char name[0x201];
+        bool found = false;
+        printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+        printf("                                                           ");
+        printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+        printf(CONSOLE_ESC(0m));
+        consoleUpdate(NULL);
+        while (true) {
+            s64 entries_read = 0;
+            Result rc = fsSaveDataInfoReaderRead(&reader, &info, 1, &entries_read);
+            if (R_FAILED(rc) || entries_read == 0) break;
+
+            if (info.save_data_type == FsSaveDataType_Account && memcmp(&info.uid, &userAccounts[selectedUser], sizeof(AccountUid)) == 0 ) {
+                if (uninstalledTitle(info.application_id, name, sizeof(name))) {
+                    for (int i = 0; i < arrayNum; i++) {
+                        if (strtoull(titleIDS[i], NULL, 16) == info.application_id) {
+                            found = true;
+                        }
+                    }
+                    if (!found) {
+                        strncpy(titleNames[arrayNum], name, sizeof(titleNames[0]) - 1);
+                        titleNames[arrayNum][sizeof(titleNames[0]) - 1] = '\0';
+                        snprintf(titleIDS[arrayNum], sizeof(titleIDS[0]), "%016lX", info.application_id);
+                        snprintf(uninstalledTitleIDS[uninstalledTitles], sizeof(uninstalledTitleIDS[0]), "%016lX", info.application_id);
+                        if (total_users - selectedUser == 2) {
+                            rc = fsdevMountDeviceSaveData("save", info.application_id);
+                        } else if (total_users - selectedUser == 1) {
+                            rc = fsdevMountBcatSaveData("save", info.application_id);
+                        } else {
+                            rc = fsdevMountSaveData("save", info.application_id, userAccounts[selectedUser]);
+                        }
+                        if (R_SUCCEEDED(rc)) {
+                            u64 sizeInBytes = calculateFolderSize("save:/");
+                            float size = (float)sizeInBytes / (1024.0f * 1024.0f);
+                            titleSaveSize[arrayNum] = size;
+                            fsdevUnmountDevice("save");
+                        }
+                        arrayNum++;
+                        totalApps += 1;
+                        uninstalledTitles += 1;
+                        printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+                        printf("Scanning uninstalled titles, found %d", uninstalledTitles);
+                        printf(CONSOLE_ESC(0m));
+                        consoleUpdate(NULL);
+                    }
+                    found = false;
+                }
+            }
+        }
+    }
 }
 static void createTempFoler(const char *path) {
     char tmp[512];
@@ -620,13 +776,16 @@ static void handleMovement(PadState* pad, bool isUp, int* selectedInPage, int* s
         }
     }
 }
-void cleanUpVar(){
+void cleanUpVar() {
     shutdownRequested = false;
     for (int i = 0; i < 256; i++) {
         memset(titleNames[i], 0, 100);
     }
     for (int i = 0; i < 256; i++) {
         memset(titleIDS[i], 0, 100);
+    }
+    for (int i = 0; i < 256; i++) {
+        memset(uninstalledTitleIDS[i], 0, 100);
     }
     for (int i = 0; i < 256; i++) {
         titleSaveSize[i] = 0.0f;
@@ -640,6 +799,7 @@ void cleanUpVar(){
         selectedTitles[i] = 0;
     }
     selectedInPage = 1;
+    uninstalledTitles = 0;
 }
 int push() {
     printf(CONSOLE_ESC(10;2H));
@@ -665,7 +825,6 @@ int push() {
         cleanUpVar();
         return 0;
     }
-    validapps = arrayNum;
     maxPages += arrayNum / 29;
     if (arrayNum % 29 == 0) {
         maxPages -= 1;
@@ -759,7 +918,7 @@ int push() {
                     selectedTitles[arrayNum++] = selected;
                     drawSelected();
                     found = true;
-                    if (selectedInPage != 29 && selected != validapps) {
+                    if (selectedInPage != 29 && selected != totalApps) {
                         clearSelected();
                         selectedInPage +=  1;
                         selected += 1;
@@ -780,7 +939,7 @@ int push() {
                 if (found == false) {
                     selectedTitles[arrayNum++] = selected;
                     drawSelected();
-                    if (selectedInPage != 29 && selected != validapps) {
+                    if (selectedInPage != 29 && selected != totalApps) {
                         clearSelected();
                         selectedInPage +=  1;
                         selected += 1;
