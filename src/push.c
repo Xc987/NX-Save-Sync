@@ -1024,6 +1024,7 @@ int push() {
         }
     }
     checkTempFolder();
+    int succeededTitles = 0;
     for (int i = 0; i < arrayNum; i++) {
         printf(CONSOLE_ESC(11;1H) CONSOLE_ESC(38;5;255m));
         for (int i = 0; i < 10; i++) {
@@ -1048,8 +1049,7 @@ int push() {
             }
             if (R_FAILED(rc)) {
                 printf(CONSOLE_ESC(1C) "fsdevMountSaveData() failed!\n");
-                cleanUpVar();
-                return 0;
+                continue;
             }
         }
         char title_id_folder[64];
@@ -1075,18 +1075,17 @@ int push() {
                 fclose(file);
             } else {
                 printf(CONSOLE_ESC(1C) "Failed to create title name file!\n");
-                cleanUp();
-                cleanUpVar();
-                return 0;
+                continue;
             }
             free(utf8_str);
         } else {
             printf(CONSOLE_ESC(1C) "Failed to convert string to UTF-8!\n");
-            cleanUp();
-            cleanUpVar();
-            return 0;
+            continue;
         }
+        succeededTitles += 1;
     }
+    printf("\n");
+    printf(CONSOLE_ESC(1C) "Total moved save files:  %d / %d\n\n", succeededTitles, arrayNum);
     printf(CONSOLE_ESC(1C)"Zipping sdmc:/temp/ folder\n");
     consoleUpdate(NULL);
     zipDir("sdmc:/temp/", "sdmc:/temp.zip");
