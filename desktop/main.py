@@ -572,7 +572,8 @@ def createWindow():
             font_paths = [
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                 "/usr/share/fonts/TTF/DejaVuSans.ttf",
-                "/usr/share/fonts/liberation/LiberationSans-Regular.ttf"
+                "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf"
             ]
             default_font = None
             for font_path in font_paths:
