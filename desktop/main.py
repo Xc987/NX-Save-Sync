@@ -569,21 +569,7 @@ def createWindow():
             except:
                 default_font = None
         elif platform.system() == "Linux":
-            font_paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/TTF/DejaVuSans.ttf",
-                "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
-                "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf"
-            ]
-            default_font = None
-            for font_path in font_paths:
-                if os.path.exists(font_path):
-                    try:
-                        default_font = dpg.add_font(font_path, 16*2)
-                        break
-                    except:
-                        continue
-
+            default_font = dpg.add_font(os.path.join(scriptDir, "include", "Arial.ttf"), 16*2)
     configFile = checkConfig()
     if configFile != 0:
         with open(configFile, 'r') as file:
