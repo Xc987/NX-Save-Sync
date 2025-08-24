@@ -1,7 +1,5 @@
 import dearpygui.dearpygui as dpg
 from pathlib import Path
-from io import StringIO
-import traceback
 import urllib.request
 import socket
 import json
@@ -24,8 +22,6 @@ elif platform.system() == "Linux":
         print("Please install pynput for Linux support: pip install pynput")
         sys.exit(1)
 
-output_buffer = StringIO()
-
 if platform.system() == "Linux":
     linux_pressed_enter = False
     keyboard_listener = None
@@ -46,57 +42,6 @@ keys = []
 paths = []
 server_thread = None
 themesel = 1
-
-class OutputWindow:
-    def __init__(self):
-        self.buffer = StringIO()
-        self.setup_redirection()
-        self.setup_exception_handler()
-        
-    def setup_redirection(self):
-        sys.stdout = self.OutputRedirector(self.buffer, self.update_window)
-        sys.stderr = self.OutputRedirector(self.buffer, self.update_window)
-    
-    def setup_exception_handler(self):
-        sys.excepthook = self.handle_exception
-    
-    class OutputRedirector:
-        def __init__(self, buffer, update_callback):
-            self.buffer = buffer
-            self.update_callback = update_callback
-            
-        def write(self, text):
-            self.buffer.write(text)
-            self.update_callback()
-            
-        def flush(self):
-            pass
-    
-    def handle_exception(self, exc_type, exc_value, exc_traceback):
-        exception_only = f"{exc_type.__name__}({exc_value.args[0]}, '{exc_value.args[1]}')" if exc_value.args else f"{exc_type.__name__}()"
-        traceback_text = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
-        full_output = f"{exception_only}\n\nTraceback:\n{traceback_text}"
-        self.buffer.write(full_output + "\n")
-        self.update_window()
-        sys.__stderr__.write(full_output + "\n")
-    
-    def update_window(self):
-        if dpg.does_item_exist("output_window"):
-            dpg.set_value("output_text", self.buffer.getvalue())
-    
-    def create_window(self):
-        if dpg.does_item_exist("output_window"):
-            dpg.focus_item("output_window")
-            return
-        with dpg.window(tag="output_window", label="Debug Output", width=300, height=250):
-            with dpg.menu_bar():
-                dpg.add_menu_item(label="Copy All", callback=lambda: dpg.set_clipboard_text(self.buffer.getvalue()))
-            with dpg.child_window(tag="output_scroll", height=-1):
-                dpg.add_input_text(tag="output_text", default_value=self.buffer.getvalue(), multiline=True, readonly=False, width=-1, height=-1, tab_input=True)
-    def show_context_menu(self):
-        if dpg.does_item_exist("output_text"):
-            with dpg.window(tag="context_menu", popup=True, no_title_bar=True, no_move=True):
-                dpg.add_menu_item(label="Copy All", callback=lambda: dpg.set_clipboard_text(self.buffer.getvalue()))
 
 def checkConfig():
     if platform.system() == "Windows":
@@ -149,12 +94,16 @@ def changeHost(device):
                             dpg.delete_item("input_widget2")
                             dpg.delete_item("input2")
                             input_entered = False
+                        if pressed_enter and input_value == "":
+                            pressed_enter = False
                     elif platform.system() == "Linux":
                         input_value = dpg.get_value("input_widget2")
                         if input_value != "" and linux_pressed_enter:
                             dpg.delete_item("input_widget2")
                             dpg.delete_item("input2")
                             input_entered = False
+                        if linux_pressed_enter and input_value == "":
+                            linux_pressed_enter = False
                     time.sleep(0.1)
 
                 if platform.system() == "Linux" and listener:
@@ -200,12 +149,16 @@ def changeHost(device):
                         dpg.delete_item("input_widget2")
                         dpg.delete_item("input2")
                         input_entered = False
+                    if pressed_enter and input_value == "":
+                            pressed_enter = False
                 elif platform.system() == "Linux":
                     input_value = dpg.get_value("input_widget2")
                     if input_value != "" and linux_pressed_enter:
                         dpg.delete_item("input_widget2")
                         dpg.delete_item("input2")
                         input_entered = False
+                    if linux_pressed_enter and input_value == "":
+                            linux_pressed_enter = False
                 time.sleep(0.1)
 
             if platform.system() == "Linux" and listener:
@@ -417,12 +370,16 @@ def inputString():
                 dpg.delete_item("input_widget")
                 dpg.delete_item("input")
                 input_entered = False
+            if input_value == ""and pressed_enter:
+                pressed_enter = False
         elif platform.system() == "Linux":
             input_value = dpg.get_value("input_widget")
             if input_value != "" and linux_pressed_enter:
                 dpg.delete_item("input_widget")
                 dpg.delete_item("input")
                 input_entered = False
+            if input_value == ""and linux_pressed_enter:
+                linux_pressed_enter = False
         time.sleep(0.1)
 
     if platform.system() == "Linux" and listener:
@@ -462,12 +419,16 @@ def inputStringPath(titleName):
                 dpg.delete_item("input_widget")
                 dpg.delete_item("input")
                 input_entered = False
+            if input_value == ""and pressed_enter:
+                pressed_enter = False
         elif platform.system() == "Linux":
             input_value = dpg.get_value("input_widget")
             if input_value != "" and linux_pressed_enter:
                 dpg.delete_item("input_widget")
                 dpg.delete_item("input")
                 input_entered = False
+            if input_value == ""and linux_pressed_enter:
+                linux_pressed_enter = False
         time.sleep(0.1)
 
     if platform.system() == "Linux" and listener:
@@ -553,13 +514,8 @@ def setTheme():
 
     dpg.bind_theme(appTheme)
 
-def button_callback(output_window):
-    output_window.create_window()
-    dpg.split_frame()
-
 def createWindow():
     global output_widget, output_widget2, themesel
-    output_window = OutputWindow()
     dpg.create_context()
 
     with dpg.font_registry():
@@ -675,7 +631,6 @@ def createWindow():
                     dpg.add_text("Switch IP not set!", tag="current_ip")
                     dpg.add_button(label="Set switch IP", width=150, height=30, tag="current_ip_button", callback=lambda: changeHost(0))
                     dpg.add_button(label="Set secondary switch IP", width=250, height=30, tag="current_ip_button2", callback=lambda: changeHost(1))
-                dpg.add_button(label="Show debug", width=150, height=30, callback=lambda: button_callback(output_window))
                 configFile = checkConfig()
                 if configFile != 0:
                     with open(configFile, 'r') as file:
@@ -690,15 +645,8 @@ def createWindow():
     dpg.show_viewport()
     dpg.set_primary_window("Primary Window", True)
     dpg.start_dearpygui()
-    try:
-        while dpg.is_dearpygui_running():
-            dpg.render_dearpygui_frame()
-    except Exception as e:
-        output_window.handle_exception(type(e), e, e.__traceback__)
-    finally:
-        dpg.destroy_context()
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
+    while dpg.is_dearpygui_running():
+        dpg.render_dearpygui_frame()
     server = uploadZip()
     server.shutdown_flag.set()
     dpg.destroy_context()
@@ -822,6 +770,8 @@ def addTitle():
                 dpg.delete_item("input_widget_name")
                 dpg.delete_item("input_widget_path")
                 input_entered = False
+            if pressed_enter and tid_value == "" or name_value == "" or path_value == "":
+                pressed_enter = False
         elif platform.system() == "Linux":
             tid_value = dpg.get_value("input_widget_tid")
             name_value = dpg.get_value("input_widget_name")
@@ -832,6 +782,8 @@ def addTitle():
                 dpg.delete_item("input_widget_name")
                 dpg.delete_item("input_widget_path")
                 input_entered = False
+            if linux_pressed_enter and tid_value == "" or name_value == "" or path_value == "":
+                linux_pressed_enter = False
         time.sleep(0.1)
 
     if platform.system() == "Linux" and listener:
