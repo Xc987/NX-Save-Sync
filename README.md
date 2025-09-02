@@ -67,16 +67,36 @@ git clone https://github.com/Xc987/NX-Save-Sync
 cd NX-Save-Sync
 ```
 
-build switch app
+### build switch app
 
 ```
 make
 ```
 
-build pc app
+### build pc app (windows)
 
 ```
 cd desktop
 pip install -r requirements.txt
 cxfreeze build
+```
+
+### build pc app (linux)
+
+```
+cd desktop
+mkdir -p "build" "dist"
+python3 -m venv build/venv
+source build/venv/bin/activate
+pip install dearpygui requests pyinstaller
+pip install --only-binary=:all: pynput
+pip install git+https://github.com/maddinpsy/pynput.git@fixup-xorg-merge-artifact
+pyinstaller --windowed --name "NX-Save-Sync" \
+  --add-data="$(python -c 'import dearpygui; print(dearpygui.__path__[0])'):dearpygui" \
+  --add-data="$(python -c 'import pynput; print(pynput.__path__[0])'):pynput" \
+  --hidden-import="pynput.keyboard._xorg" \
+  --add-data="include:include" \
+  --icon=include/icon.ico \
+  main.py
+mv $PWD/dist/NX-Save-Sync/_internal/include/ $PWD/dist/NX-Save-Sync/
 ```
