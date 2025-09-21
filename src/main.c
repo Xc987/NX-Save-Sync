@@ -75,10 +75,10 @@ static void drawSelected(int selected) {
         }
         bool keyvalue = getKeyValue("compression");
         printf(CONSOLE_ESC(12;2H) CONSOLE_ESC(38;5;255m) "Enable ZIP file compression: %s                                              \n", keyvalue?"Yes":"No ");
-        printf(CONSOLE_ESC(0m));
         keyvalue = getKeyValue("scanuninstalled");
         printf(CONSOLE_ESC(13;2H) CONSOLE_ESC(38;5;255m) "Scan uninstalled titles: %s                                                  \n", keyvalue?"Yes":"No ");
-        printf(CONSOLE_ESC(0m));
+        keyvalue = getKeyValue("hideempty");
+        printf(CONSOLE_ESC(14;2H) CONSOLE_ESC(38;5;255m) "Hide titles with empty save file: %s                                         \n", keyvalue?"Yes":"No ");
         if (selected == 4) {
             if (checkConfig(0) == 0) {
                 printf(CONSOLE_ESC(10;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Set PC IP                                                                     \n" CONSOLE_ESC(0m));
@@ -98,6 +98,10 @@ static void drawSelected(int selected) {
         } else if (selected == 7) {
             keyvalue = getKeyValue("scanuninstalled");
             printf(CONSOLE_ESC(13;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Scan uninstalled titles: %s                                                  \n", keyvalue?"Yes":"No ");
+            printf(CONSOLE_ESC(0m));
+        } else if (selected == 8) {
+            keyvalue = getKeyValue("hideempty");
+            printf(CONSOLE_ESC(14;2H) CONSOLE_ESC(48;5;20m) CONSOLE_ESC(38;5;255m) "Hide titles with empty save file: %s                                         \n", keyvalue?"Yes":"No ");
             printf(CONSOLE_ESC(0m));
         }
     }
@@ -248,6 +252,15 @@ int main() {
                 fclose(fp);
             }
         }
+        keyvalue = json_object_get(root, "hideempty");
+        if (!keyvalue) {
+            json_object_set_new(root, "scanuninstalled", json_false());
+            FILE *fp = fopen("sdmc:/switch/NX-Save-Sync/config.json", "w");
+            if (fp) {
+                json_dumpf(root, fp, JSON_INDENT(4));
+                fclose(fp);
+            }
+        }
         json_decref(root);
     }
     int returnValue = 0;
@@ -287,7 +300,7 @@ int main() {
         }
         if (kDown & HidNpadButton_AnyLeft) {
             if (selected > 1) {
-                if (selected == 4 || selected == 5 || selected == 6 || selected == 7) {
+                if (selected >= 4) {
                     selected = 2;
                 } else if (selected == 2 || selected == 3) {
                     selected = 1;
@@ -319,7 +332,7 @@ int main() {
             }
         }
         if (kDown & HidNpadButton_AnyDown) {
-            if ((selected != 7 && selected >= 4) || selected == 2) {
+            if ((selected != 8 && selected >= 4) || selected == 2) {
                 selected += 1;
                 drawSelected(selected);
             }
@@ -373,7 +386,7 @@ int main() {
             } else if (selected == 5) {
                 createConfig(1);
                 drawSelected(selected);
-            } else if (selected == 6 || selected == 7) {
+            } else if (selected == 6 || selected == 7 || selected == 8) {
                 json_t *root = NULL;
                 json_error_t error;
                 FILE *file = fopen("sdmc:/switch/NX-Save-Sync/config.json", "r");
@@ -395,6 +408,13 @@ int main() {
                             
                         } else {
                             json_object_set_new(root, "scanuninstalled", json_true());
+                        }
+                    } else if (selected == 8) {
+                        if (getKeyValue("hideempty") == true) {
+                            json_object_set_new(root, "hideempty", json_false());
+                            
+                        } else {
+                            json_object_set_new(root, "hideempty", json_true());
                         }
                     }
                     

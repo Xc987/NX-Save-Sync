@@ -608,10 +608,12 @@ static void listTitles() {
                 if (R_SUCCEEDED(rc)) {
                     u64 sizeInBytes = calculateFolderSize("save:/");
                     float size = (float)sizeInBytes / (1024.0f * 1024.0f);
-                    titleSaveSize[arrayNum] = size;
                     fsdevUnmountDevice("save");
-                    totalApps += 1;
-                    getTitleName(titleId, recordCount);
+                    if ((getKeyValue("hideempty") == false) || ((getKeyValue("hideempty") == true) && size > 0)) {
+                        titleSaveSize[arrayNum] = size;
+                        totalApps += 1;
+                        getTitleName(titleId, recordCount);
+                    }
                 }
             }
         }
@@ -627,6 +629,7 @@ static void listTitles() {
         FsSaveDataInfo info;
         char name[0x201];
         bool found = false;
+        float size = 0;
         printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
         printf("                                                           ");
         printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
@@ -645,10 +648,6 @@ static void listTitles() {
                         }
                     }
                     if (!found) {
-                        strncpy(titleNames[arrayNum], name, sizeof(titleNames[0]) - 1);
-                        titleNames[arrayNum][sizeof(titleNames[0]) - 1] = '\0';
-                        snprintf(titleIDS[arrayNum], sizeof(titleIDS[0]), "%016lX", info.application_id);
-                        snprintf(uninstalledTitleIDS[uninstalledTitles], sizeof(uninstalledTitleIDS[0]), "%016lX", info.application_id);
                         if (total_users - selectedUser == 2) {
                             rc = fsdevMountDeviceSaveData("save", info.application_id);
                         } else if (total_users - selectedUser == 1) {
@@ -656,19 +655,26 @@ static void listTitles() {
                         } else {
                             rc = fsdevMountSaveData("save", info.application_id, userAccounts[selectedUser]);
                         }
+                        
                         if (R_SUCCEEDED(rc)) {
                             u64 sizeInBytes = calculateFolderSize("save:/");
-                            float size = (float)sizeInBytes / (1024.0f * 1024.0f);
-                            titleSaveSize[arrayNum] = size;
+                            size = (float)sizeInBytes / (1024.0f * 1024.0f);
                             fsdevUnmountDevice("save");
                         }
-                        arrayNum++;
-                        totalApps += 1;
-                        uninstalledTitles += 1;
-                        printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
-                        printf("Scanning uninstalled titles, found %d", uninstalledTitles);
-                        printf(CONSOLE_ESC(0m));
-                        consoleUpdate(NULL);
+                        if ((getKeyValue("hideempty") == false) || ((getKeyValue("hideempty") == true) && size > 0)) {
+                            strncpy(titleNames[arrayNum], name, sizeof(titleNames[0]) - 1);
+                            titleNames[arrayNum][sizeof(titleNames[0]) - 1] = '\0';
+                            snprintf(titleIDS[arrayNum], sizeof(titleIDS[0]), "%016lX", info.application_id);
+                            snprintf(uninstalledTitleIDS[uninstalledTitles], sizeof(uninstalledTitleIDS[0]), "%016lX", info.application_id);
+                            titleSaveSize[arrayNum] = size;
+                            arrayNum++;
+                            totalApps += 1;
+                            uninstalledTitles += 1;
+                            printf(CONSOLE_ESC(7;6H) CONSOLE_ESC(48;5;237m) CONSOLE_ESC(38;5;255m));
+                            printf("Scanning uninstalled titles, found %d", uninstalledTitles);
+                            printf(CONSOLE_ESC(0m));
+                            consoleUpdate(NULL);
+                        }
                     }
                     found = false;
                 }
