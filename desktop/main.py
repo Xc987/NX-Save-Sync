@@ -64,122 +64,69 @@ def checkConfig():
 def changeHost(device):
     global pressed_enter, linux_pressed_enter
     configFile = checkConfig()
-    if not configFile.exists():
-        with open(str(configFile), 'w') as f:
-            with dpg.window(tag="input2", label="Input Window", pos=((600-300) / 2, (400 - 100) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
-                if device == 0:
-                    dpg.add_text("Input switch IP")
-                elif device == 1:
-                    dpg.add_text("Input secondary switch IP")
-                dpg.add_input_text(width=250, tag="input_widget2")
+    config = {}
+    with open(configFile, 'r') as f:
+        config = json.load(f)
+    with dpg.window(tag="input2", label="Input Window", pos=((600-300) / 2, (400 - 100) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
+        if device == 0:
+            dpg.add_text("Input switch IP")
+        elif device == 1:
+            dpg.add_text("Input secondary switch IP")
+        dpg.add_input_text(width=250, tag="input_widget2")
 
-                listener = None
-                if platform.system() == "Linux":
-                    def on_press(key):
-                        global linux_pressed_enter
-                        if key == pynput_keyboard.Key.enter:
-                            linux_pressed_enter = True
+        listener = None
+        if platform.system() == "Linux":
+            def on_press(key):
+                global linux_pressed_enter
+                if key == pynput_keyboard.Key.enter:
+                    linux_pressed_enter = True
 
-                    listener = pynput_keyboard.Listener(on_press=on_press)
-                    listener.start()
+            listener = pynput_keyboard.Listener(on_press=on_press)
+            listener.start()
 
-                input_entered = True
-                linux_pressed_enter = False
-                input_value = ""
-                while input_entered:
-                    if platform.system() == "Windows":
-                        keyboard.on_press(checkInput)
-                        input_value = dpg.get_value("input_widget2")
-                        if input_value != "" and pressed_enter:
-                            dpg.delete_item("input_widget2")
-                            dpg.delete_item("input2")
-                            input_entered = False
-                        if pressed_enter and input_value == "":
-                            pressed_enter = False
-                    elif platform.system() == "Linux":
-                        input_value = dpg.get_value("input_widget2")
-                        if input_value != "" and linux_pressed_enter:
-                            dpg.delete_item("input_widget2")
-                            dpg.delete_item("input2")
-                            input_entered = False
-                        if linux_pressed_enter and input_value == "":
-                            linux_pressed_enter = False
-                    time.sleep(0.1)
+        input_entered = True
+        linux_pressed_enter = False
+        input_value = ""
+        while input_entered:
+            if platform.system() == "Windows":
+                keyboard.on_press(checkInput)
+                input_value = dpg.get_value("input_widget2")
+                if input_value != "" and pressed_enter:
+                    dpg.delete_item("input_widget2")
+                    dpg.delete_item("input2")
+                    input_entered = False
+                if pressed_enter and input_value == "":
+                        pressed_enter = False
+            elif platform.system() == "Linux":
+                input_value = dpg.get_value("input_widget2")
+                if input_value != "" and linux_pressed_enter:
+                    dpg.delete_item("input_widget2")
+                    dpg.delete_item("input2")
+                    input_entered = False
+                if linux_pressed_enter and input_value == "":
+                        linux_pressed_enter = False
+            time.sleep(0.1)
 
-                if platform.system() == "Linux" and listener:
-                    listener.stop()
+        if platform.system() == "Linux" and listener:
+            listener.stop()
 
-                pressed_enter = False
-                linux_pressed_enter = False
-                hostIp = input_value
-            if device == 0:
-                json.dump({"host": hostIp}, f, indent=4) 
-            elif device == 1:
-                json.dump({"shost": hostIp}, f, indent=4) 
-            
-    else:
-        config = {}
-        with open(configFile, 'r') as f:
-            config = json.load(f)
-        with dpg.window(tag="input2", label="Input Window", pos=((600-300) / 2, (400 - 100) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
-            if device == 0:
-                dpg.add_text("Input switch IP")
-            elif device == 1:
-                dpg.add_text("Input secondary switch IP")
-            dpg.add_input_text(width=250, tag="input_widget2")
-
-            listener = None
-            if platform.system() == "Linux":
-                def on_press(key):
-                    global linux_pressed_enter
-                    if key == pynput_keyboard.Key.enter:
-                        linux_pressed_enter = True
-
-                listener = pynput_keyboard.Listener(on_press=on_press)
-                listener.start()
-
-            input_entered = True
-            linux_pressed_enter = False
-            input_value = ""
-            while input_entered:
-                if platform.system() == "Windows":
-                    keyboard.on_press(checkInput)
-                    input_value = dpg.get_value("input_widget2")
-                    if input_value != "" and pressed_enter:
-                        dpg.delete_item("input_widget2")
-                        dpg.delete_item("input2")
-                        input_entered = False
-                    if pressed_enter and input_value == "":
-                            pressed_enter = False
-                elif platform.system() == "Linux":
-                    input_value = dpg.get_value("input_widget2")
-                    if input_value != "" and linux_pressed_enter:
-                        dpg.delete_item("input_widget2")
-                        dpg.delete_item("input2")
-                        input_entered = False
-                    if linux_pressed_enter and input_value == "":
-                            linux_pressed_enter = False
-                time.sleep(0.1)
-
-            if platform.system() == "Linux" and listener:
-                listener.stop()
-
-            pressed_enter = False
-            linux_pressed_enter = False
-            hostIp = input_value
-
+        pressed_enter = False
+        linux_pressed_enter = False
+        hostIp = input_value
+    
+    if hostIp:
         if device == 0:
             config["host"] = hostIp
         elif device == 1:
             config["shost"] = hostIp
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
-    if device == 0:
-        dpg.set_value("current_ip", f"Switch IP: {hostIp}")
-        dpg.set_item_label("current_ip_button", "Change switch IP")
-    elif device == 1:
-        dpg.set_value("current_ip2", f"Secondary switch IP: {hostIp}")
-        dpg.set_item_label("current_ip_button2", "Change Secondary switch IP")
+        if device == 0:
+            dpg.set_value("current_ip", f"Switch IP: {hostIp}")
+            dpg.set_item_label("current_ip_button", "Change switch IP")
+        elif device == 1:
+            dpg.set_value("current_ip2", f"Secondary switch IP: {hostIp}")
+            dpg.set_item_label("current_ip_button2", "Change Secondary switch IP")
     
 def downloadZip(host, port, file_name):
     try:
@@ -446,8 +393,7 @@ def changeTheme(sender, app_data):
         config = {}
         with open(configFile, 'r') as f:
             config = json.load(f)
-        theme = "dark"
-        config["theme"] = theme
+        config["theme"] = "dark"
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
         themesel = 1
@@ -456,8 +402,7 @@ def changeTheme(sender, app_data):
         config = {}
         with open(configFile, 'r') as f:
             config = json.load(f)
-        theme = "light"
-        config["theme"] = theme
+        config["theme"] = "light"
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
         themesel = 2
@@ -566,8 +511,7 @@ def createWindow():
 
         config = {}
         with open(configFile, 'w') as f:
-            theme = "dark"
-            json.dump({"theme": theme}, f, indent=4)
+            json.dump({"theme": "dark"}, f, indent=4)
         themesel = 1
         setTheme()
 
@@ -791,20 +735,20 @@ def addTitle():
 
     pressed_enter = False
     linux_pressed_enter = False
-
-    configFile = checkConfig()
-    with open(configFile, 'r') as file:
-        data = json.load(file)
-        if tid_value not in data:
-            data[tid_value] = [path_value, name_value]
-        else:
-            with dpg.window(tag="warning", label="Warning Window", pos=((600 - 300) / 2, (400 - 160) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=160):
-                dpg.add_text("This TID is already saved", tag="warn_owerwrite1")
-                dpg.add_text("The data will be overwritten!", tag="warn_owerwrite2")
-                dpg.add_button(label="Ok", width=150, height=30, tag="confirm_button", callback=lambda: confirmWrite(tid_value, path_value, name_value))
-                dpg.add_button(label="Cancel", width=150, height=30, tag="cancel_button", callback=cancelWrite)
-    with open(configFile, 'w') as file:
-        json.dump(data, file, indent=4)
+    if tid_value and name_value and path_value:
+        configFile = checkConfig()
+        with open(configFile, 'r') as file:
+            data = json.load(file)
+            if tid_value not in data:
+                data[tid_value] = [path_value, name_value]
+            else:
+                with dpg.window(tag="warning", label="Warning Window", pos=((600 - 300) / 2, (400 - 160) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=160):
+                    dpg.add_text("This TID is already saved", tag="warn_owerwrite1")
+                    dpg.add_text("The data will be overwritten!", tag="warn_owerwrite2")
+                    dpg.add_button(label="Ok", width=150, height=30, tag="confirm_button", callback=lambda: confirmWrite(tid_value, path_value, name_value))
+                    dpg.add_button(label="Cancel", width=150, height=30, tag="cancel_button", callback=cancelWrite)
+        with open(configFile, 'w') as file:
+            json.dump(data, file, indent=4)
     
 def cleanUp():
     printToWidget("Deleteing temp.zip file.\n")
@@ -950,11 +894,12 @@ def pull(device):
                     if not subFolder in data:
                         printToWidget(f"Please enter the emulator save directory for {titleName}\n")
                         emuPath = inputStringPath(titleName)
-                        with open(configFile, 'r') as file:
-                            data = json.load(file)
-                            data[subFolder] = [emuPath, titleName]
-                        with open(configFile, 'w') as file:
-                            json.dump(data, file, indent=4)
+                        if subFolder and emuPath and titleName:
+                            with open(configFile, 'r') as file:
+                                data = json.load(file)
+                                data[subFolder] = [emuPath, titleName]
+                            with open(configFile, 'w') as file:
+                                json.dump(data, file, indent=4)
             else:
                 printToWidget("Couldnt find temp folder!\n")
                 return 0
