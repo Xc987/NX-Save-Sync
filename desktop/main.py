@@ -258,7 +258,9 @@ class uploadZip:
             keys = []
             paths = []
             return
-        IPAddr = socket.gethostbyname(socket.gethostname())
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            IPAddr = s.getsockname()[0]
         printToWidget2(f"PC IP: {IPAddr}\n")
         self.server_socket.bind(('0.0.0.0', 8080))
         self.server_socket.listen(5)
