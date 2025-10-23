@@ -12,7 +12,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 # project settings, check docs
 #---------------------------------------------------------------------------------
-TARGET		:=	$(notdir $(CURDIR))
+TARGET		:=	NX-Save-Sync
 BUILD		:=	build
 SOURCES		:=	src include/third_party/miniz
 DATA		:=	data

@@ -1,6 +1,8 @@
-NX-Save-Sync.nro
-NX-Save-Sync.nacp
-NX-Save-Sync.elf
-/build
+/switch/NX-Save-Sync.nro
+/switch/NX-Save-Sync.nacp
+/switch/NX-Save-Sync.elf
+/switch/build
 
 /desktop/build
+/desktop/dist
+/desktop/NX-Save-Sync.spec
