@@ -70,6 +70,7 @@ cd NX-Save-Sync
 ### build switch app
 
 ```
+cd switch
 make
 ```
 
