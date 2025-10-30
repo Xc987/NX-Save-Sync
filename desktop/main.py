@@ -522,6 +522,11 @@ def createWindow():
             dpg.bind_font(default_font)
             dpg.set_global_font_scale(0.57)
         with dpg.tab_bar():
+            with dpg.tab(label="Send"):
+                dpg.add_text("Send save file to primary switch or secondary switch")
+                dpg.add_button(label="Start server", width=150, height=30, callback=startPush, tag="start_button")
+                output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=-1, height=-1, tab_input=True)
+                dpg.hide_item(output_widget2)
             with dpg.tab(label="Receive"):
                 dpg.add_text("Receive save file from primary switch or secondary switch")
                 with dpg.group(horizontal=True):
@@ -533,11 +538,6 @@ def createWindow():
                 dpg.add_button(label="Connect to secondary switch", width=250, height=30, callback=lambda: startPull(1), tag="connect_button2")
                 output_widget = dpg.add_input_text(multiline=True, readonly=True, width=-1, height=-1, tab_input=True)
                 dpg.hide_item(output_widget)
-            with dpg.tab(label="Send"):
-                dpg.add_text("Send save file to primary switch or secondary switch")
-                dpg.add_button(label="Start server", width=150, height=30, callback=startPush, tag="start_button")
-                output_widget2 = dpg.add_input_text(multiline=True, readonly=True, width=-1, height=-1, tab_input=True)
-                dpg.hide_item(output_widget2)
             with dpg.tab(label="Titles"):
                 with dpg.group(horizontal=True):
                     dpg.add_button(label="List all titles", width=150, height=30, callback=listTitles, tag="list_titles_button")
