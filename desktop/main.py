@@ -66,7 +66,7 @@ def changeHost(device):
     config = {}
     with open(configFile, 'r') as f:
         config = json.load(f)
-    with dpg.window(tag="input2", label="Input Window", pos=((dpg.get_item_width("Primary Window")-300) / 2, (dpg.get_item_heigh("Primary Window") - 100) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
+    with dpg.window(tag="input2", label="Input Window", pos=((dpg.get_item_width("Primary Window")-300) / 2, (dpg.get_item_height("Primary Window") - 100) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
         if device == 0:
             dpg.add_text("Input switch IP")
         elif device == 1:
@@ -290,7 +290,7 @@ def checkInput(event):
         pressed_enter = True
 
 def inputString():
-    with dpg.window(tag="input", label="Input Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_heigh("Primary Window") - 100) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
+    with dpg.window(tag="input", label="Input Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_height("Primary Window") - 100) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=100):
         dpg.add_text("Input emulator save file path")
         dpg.add_input_text(width=250, tag="input_widget")
 
@@ -338,7 +338,7 @@ def inputString():
     return input_value
 
 def inputStringPath(titleName):
-    with dpg.window(tag="input", label="Input Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_heigh("Primary Window") - 125) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=125):
+    with dpg.window(tag="input", label="Input Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_height("Primary Window") - 125) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=125):
         dpg.add_text("Input emulator save file path for title:")
         dpg.add_text(titleName)
         dpg.add_input_text(width=250, tag="input_widget")
@@ -614,7 +614,7 @@ def listTitles():
         return 0
     else:
         dpg.hide_item("no_titles_warn")
-        with dpg.window(tag="titles", label="Titles Window", on_close=closeTitleWindow, pos=((dpg.get_item_width("Primary Window") - 500) / 2, (dpg.get_item_heigh("Primary Window") - 275) / 2), no_resize=True, no_collapse=True, no_move=True, modal=True, width=500, height=275):
+        with dpg.window(tag="titles", label="Titles Window", on_close=closeTitleWindow, pos=((dpg.get_item_width("Primary Window") - 500) / 2, (dpg.get_item_height("Primary Window") - 275) / 2), no_resize=True, no_collapse=True, no_move=True, modal=True, width=500, height=275):
             dpg.add_text("All saved titles")
             with dpg.child_window(border=False):
                 dpg.add_listbox(tag="array_listbox",items=titles,num_items=10,width=-1)
@@ -650,7 +650,7 @@ def deleteTitle():
         return 0
     else:
         dpg.hide_item("no_titles_warn2")
-        with dpg.window(tag="titles", label="Titles Window", on_close=closeTitleWindow, pos=((dpg.get_item_width("Primary Window") - 500) / 2, (dpg.get_item_heigh("Primary Window") - 275) / 2), no_resize=True, no_collapse=True, no_move=True, modal=True, width=500, height=275):
+        with dpg.window(tag="titles", label="Titles Window", on_close=closeTitleWindow, pos=((dpg.get_item_width("Primary Window") - 500) / 2, (dpg.get_item_height("Primary Window") - 275) / 2), no_resize=True, no_collapse=True, no_move=True, modal=True, width=500, height=275):
             dpg.add_text("Select a title to delete")
             with dpg.child_window(border=False):
                 dpg.add_listbox(tag="array_listbox",items=titles,num_items=10,width=-1, callback=on_listbox_select)
@@ -672,7 +672,7 @@ def cancelWrite():
     dpg.delete_item("cancel_button")
     
 def addTitle():
-    with dpg.window(tag="input", label="Input Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_heigh("Primary Window") - 210) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=210):
+    with dpg.window(tag="input", label="Input Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_height("Primary Window") - 210) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=210):
         dpg.add_text("Title ID")
         dpg.add_input_text(width=250, tag="input_widget_tid")
         dpg.add_text("Title name")
@@ -736,7 +736,7 @@ def addTitle():
             if tid_value not in data:
                 data[tid_value] = [path_value, name_value]
             else:
-                with dpg.window(tag="warning", label="Warning Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_heigh("Primary Window") - 160) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=160):
+                with dpg.window(tag="warning", label="Warning Window", pos=((dpg.get_item_width("Primary Window") - 300) / 2, (dpg.get_item_height("Primary Window") - 160) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=300, height=160):
                     dpg.add_text("This TID is already saved", tag="warn_owerwrite1")
                     dpg.add_text("The data will be overwritten!", tag="warn_owerwrite2")
                     dpg.add_button(label="Ok", width=150, height=30, tag="confirm_button", callback=lambda: confirmWrite(tid_value, path_value, name_value))
@@ -813,7 +813,7 @@ def selectTitle():
         printToWidget2("No valid entries found in config.json!\n")
         return 0
     else:
-        with dpg.window(tag="titles", label="Title selection Window", pos=((dpg.get_item_width("Primary Window")-500) / 2, (dpg.get_item_heigh("Primary Window")-275) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=500, height=275):
+        with dpg.window(tag="titles", label="Title selection Window", pos=((dpg.get_item_width("Primary Window")-500) / 2, (dpg.get_item_height("Primary Window")-275) / 2), no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=True, width=500, height=275):
             dpg.add_text("Select a title(s) you want to send save file")
             with dpg.child_window(height=175, width=-1, border=False):
                 for item in titles:
