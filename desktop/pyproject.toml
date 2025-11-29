@@ -9,7 +9,7 @@ description = "NX-Save-Sync"
 
 [tool.cxfreeze]
 executables = [
-    {script = "main.py", base = "Win32GUI", icon = "icon.ico", target_name = "NX-Save-Sync"}
+    {script = "main.py", base = "gui", icon = "icon.ico", target_name = "NX-Save-Sync"}
 ]
 
 [tool.cxfreeze.build_exe]
