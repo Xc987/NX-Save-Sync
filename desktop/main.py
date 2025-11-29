@@ -41,7 +41,6 @@ titles = []
 keys = []
 paths = []
 server_thread = None
-themesel = 1
 
 def checkConfig():
     if platform.system() == "Windows":
@@ -388,7 +387,6 @@ def inputStringPath(titleName):
     return input_value
 
 def changeTheme(sender, app_data):
-    global themesel
     configFile = checkConfig()
 
     if dpg.get_value(sender):
@@ -398,8 +396,7 @@ def changeTheme(sender, app_data):
         config["theme"] = "dark"
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
-        themesel = 1
-        setTheme()
+        setTheme(1)
     else:
         config = {}
         with open(configFile, 'r') as f:
@@ -407,10 +404,9 @@ def changeTheme(sender, app_data):
         config["theme"] = "light"
         with open(configFile, 'w') as f:
             json.dump(config, f, indent=4)
-        themesel = 2
-        setTheme()
+        setTheme(2)
 
-def setTheme():
+def setTheme(themesel):
     if (themesel == 1):
         with dpg.theme() as appTheme:
             with dpg.theme_component(dpg.mvAll):
@@ -462,7 +458,7 @@ def setTheme():
     dpg.bind_theme(appTheme)
 
 def createWindow():
-    global output_widget, output_widget2, themesel
+    global output_widget, output_widget2
     dpg.create_context()
 
     with dpg.font_registry():
@@ -479,11 +475,9 @@ def createWindow():
             data = json.load(file)
             theme = data.get("theme")
             if (theme == "dark"):
-                themesel = 1
-                setTheme()
+                setTheme(1)
             elif (theme == "light"):
-                themesel = 2
-                setTheme()
+                setTheme(2)
             elif (theme == None):
                 configFile = checkConfig()
                 config = {}
@@ -492,8 +486,7 @@ def createWindow():
                 config["theme"] = "dark"
                 with open(configFile, 'w') as f:
                     json.dump(config, f, indent=4)
-                themesel = 1
-                setTheme()
+                setTheme(1)
     else:
         configFile = checkConfig()
         configDir = os.path.dirname(configFile) if configFile != 0 else None
@@ -514,8 +507,7 @@ def createWindow():
         config = {}
         with open(configFile, 'w') as f:
             json.dump({"theme": "dark"}, f, indent=4)
-        themesel = 1
-        setTheme()
+        setTheme(1)
 
     with dpg.window(tag="Primary Window", label="Main Window", no_title_bar=True, no_resize=True, no_collapse=True, no_close=True, no_move=True, modal=False, width=600, height=400):
         if default_font:
@@ -780,9 +772,13 @@ def changeSelection(sender, app_data, user_data):
         dpg.configure_item(f"{item}_text", color=(0, 135, 215))
         selected_items.add(item)
     else:
-        if (themesel == 1):
+        configFile = checkConfig()
+        with open(configFile, 'r') as file:
+            data = json.load(file)
+        theme = data.get("theme")
+        if (theme == "dark"):
             dpg.configure_item(f"{item}_text", color=(255, 255, 255))
-        else:
+        elif (theme == "light"):
             dpg.configure_item(f"{item}_text", color=(30, 30, 30))
         selected_items.discard(item)
     if (len(selected_items) == 0):
@@ -822,8 +818,9 @@ def selectTitle():
             with dpg.child_window(height=175, width=-1, border=False):
                 for item in titles:
                     with dpg.group(horizontal=True):
-                        dpg.add_checkbox(callback=changeSelection, user_data=item, tag=item)
-                        dpg.add_text(f"{item}", tag=f"{item}_text")
+                        if item != None:
+                            dpg.add_checkbox(callback=changeSelection, user_data=item, tag=item)
+                            dpg.add_text(f"{item}", tag=f"{item}_text")
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Send 0 titles", callback=push, tag="start_push_button")
                 dpg.add_button(label="Send all titles", callback=selectAllTitles)
