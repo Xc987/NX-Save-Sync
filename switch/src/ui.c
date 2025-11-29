@@ -21,7 +21,7 @@ void drawBorder() {
     for (int i = 0; i < 42; i++) {
         printf(CONSOLE_ESC(80C));
         printf("%c\n",179);
-        printf(CONSOLE_ESC(1A));
+        // printf(CONSOLE_ESC(1A));
     }
     printf(CONSOLE_ESC(44;80H));
     printf("%c",179);

@@ -20,7 +20,7 @@ INCLUDES	:=	include include/third_party/miniz
 #ROMFS	:=	romfs
 APP_TITLE   := NX Save Sync
 APP_AUTHOR  := Xc98
-APP_VERSION := 2.2.0
+APP_VERSION := 2.3.0
 
 #---------------------------------------------------------------------------------
 # options for code generation
